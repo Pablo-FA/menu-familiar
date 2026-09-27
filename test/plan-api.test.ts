@@ -9,11 +9,9 @@ const devEnv = { ...env, DEV_DISABLE_ACCESS: "true" };
 const BASE = "http://localhost/api";
 
 function send(method: string, path: string, body?: unknown) {
-  return app.request(
-    `${BASE}${path}`,
-    { method, headers: { "Content-Type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) },
-    devEnv,
-  );
+  const init: RequestInit = { method, headers: { "Content-Type": "application/json" } };
+  if (body !== undefined) init.body = JSON.stringify(body);
+  return app.request(`${BASE}${path}`, init, devEnv);
 }
 
 const recipe = (id: string, title = `Receta ${id}`) => ({ ...structuredClone(katsukare), id, title });

@@ -1,0 +1,38 @@
+.nav {
+  position: fixed;
+  left: calc(var(--page-gutter) + 20px);
+  right: calc(var(--page-gutter) + 20px);
+  bottom: var(--nav-bottom);
+  z-index: 30;
+  height: var(--nav-height);
+  padding: 6px;
+  border-radius: 999px;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 2px;
+  transform-origin: 50% 100%;
+}
+
+.item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  border-radius: 999px;
+  color: var(--inactive);
+  text-decoration: none;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+
+.item[aria-current="page"] {
+  background: var(--active);
+  color: var(--fg);
+  font-weight: 600;
+}
+
+.item:focus-visible {
+  outline-offset: -2px;
+}
