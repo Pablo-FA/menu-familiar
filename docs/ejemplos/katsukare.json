@@ -1,0 +1,38 @@
+{
+  "format": "menu-familiar/recipe@1",
+  "id": "katsukare",
+  "title": "Katsukarē (curry japonés con pollo empanado)",
+  "minutes": 40,
+  "protein": "ave",
+  "suits": "lunch",
+  "kcal_adult": 800,
+  "kcal_estimated": true,
+  "source_url": "https://www.nomecomesnada.es/katsukare-o-curry-japones/",
+  "adaptation_notes": "Cantidades estimadas (la fuente no las da). Una zanahoria extra. Versión ligera: pollo al horno a 200 °C unos 20 min o en freidora de aire (≈ 680 kcal). Contundente: solo para comida.",
+  "freezer_note": "La salsa se congela bien; se puede hacer doble ración de curry.",
+  "tags": ["japonesa", "curry", "empanado"],
+  "ingredients": [
+    { "text": "600 g de pechuga de pollo en 4 filetes gruesos", "name": "pechuga de pollo", "quantity": 600, "unit": "g", "estimated": true, "aisle": "carne-pescado", "pantry": false },
+    { "text": "260 g de arroz", "name": "arroz", "quantity": 260, "unit": "g", "estimated": true, "aisle": "cereales-pan", "pantry": true },
+    { "text": "1 cebolla mediana", "name": "cebolla", "quantity": 1, "unit": "ud", "estimated": true, "aisle": "verdura-fruta", "pantry": false },
+    { "text": "2 zanahorias", "name": "zanahoria", "quantity": 2, "unit": "ud", "estimated": true, "aisle": "verdura-fruta", "pantry": false },
+    { "text": "150 g de setas shiitake", "name": "setas shiitake", "quantity": 150, "unit": "g", "estimated": true, "aisle": "verdura-fruta", "pantry": false },
+    { "text": "Preparado de curry japonés suave, cantidad del paquete para 4 raciones", "name": "preparado de curry japonés suave", "quantity": null, "unit": null, "estimated": true, "aisle": "conservas", "pantry": false },
+    { "text": "600 ml de agua", "name": "agua", "quantity": 600, "unit": "ml", "estimated": false, "aisle": "otros", "pantry": true },
+    { "text": "50 g de harina", "name": "harina", "quantity": 50, "unit": "g", "estimated": true, "aisle": "despensa", "pantry": true },
+    { "text": "2 huevos", "name": "huevo", "quantity": 2, "unit": "ud", "estimated": true, "aisle": "huevos-lacteos", "pantry": false },
+    { "text": "100 g de panko", "name": "panko", "quantity": 100, "unit": "g", "estimated": true, "aisle": "cereales-pan", "pantry": false },
+    { "text": "Aceite", "name": "aceite", "quantity": null, "unit": null, "estimated": true, "aisle": "despensa", "pantry": true },
+    { "text": "Sal", "name": "sal", "quantity": null, "unit": null, "estimated": true, "aisle": "despensa", "pantry": true }
+  ],
+  "steps": [
+    { "text": "Pica fina la cebolla y la zanahoria; trocea las setas en trozos grandes." },
+    { "text": "Pocha las verduras a fuego medio-bajo con un poco de aceite hasta que estén blandas." },
+    { "text": "Pon el arroz a cocer para que termine a la vez que el curry." },
+    { "text": "Añade el agua a las verduras y lleva a hervor." },
+    { "text": "Incorpora las pastillas de curry y hierve removiendo hasta que espese.", "timer_seconds": 600 },
+    { "text": "Pasa cada filete por harina, huevo y panko." },
+    { "text": "Fríe los filetes hasta dorarlos y escúrrelos sobre papel (alternativa: horno a 200 °C).", "timer_seconds": 1200 },
+    { "text": "Sirve arroz y curry en plato hondo con el pollo en tiras por encima." }
+  ]
+}

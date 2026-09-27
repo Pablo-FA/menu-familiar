@@ -2,7 +2,7 @@
 
 App web personal para planificar el menú familiar. La usa una sola persona desde iPhone, iPad, Windows y Mac.
 
-**Estado actual: paso 0 (esqueleto).** Solo hay una página que comprueba que todas las piezas funcionan (D1, R2 y Cloudflare Access). Todavía no hay recetas, menús ni lista de la compra.
+**Estado actual: paso 1 (modelo de datos y API de recetas).** Existe el modelo de datos completo, la importación de recetas en JSON y la API para leerlas. Todavía no hay interfaz: solo la página técnica de estado, con una herramienta provisional para importar recetas.
 
 ## Stack
 
@@ -15,18 +15,20 @@ App web personal para planificar el menú familiar. La usa una sola persona desd
 | R2 (binding `PHOTOS`) | Bucket `menu-familiar-photos` para las fotos de las recetas. |
 | Cloudflare Access | Protege toda la app (solo tu email). Además, el Worker valida el JWT de Access en cada petición a `/api` ([`src/worker/access.ts`](src/worker/access.ts)). |
 | Workers Builds | Cada push a `main` aplica las migraciones pendientes y despliega. Sin GitHub Actions ni tokens en GitHub. |
+| zod | Validación de los datos que entran en la API, con mensajes en español. |
 
 URL: `https://menu-familiar.<tu-subdominio>.workers.dev`.
 
 ### Estructura
 
 ```
-src/client/        Frontend React (página mínima de estado)
-src/worker/        Worker: API Hono + validación de Access
-src/shared/        Tipos compartidos entre Worker y cliente
+src/client/        Frontend React (página técnica de estado + importador provisional)
+src/worker/        Worker: API Hono, validación de Access y rutas de recetas
+src/shared/        Tipos y esquemas zod compartidos entre Worker y cliente
 migrations/        Migraciones de D1 (SQL, numeradas)
+docs/              Formato de importación y ejemplos (docs/ejemplos/*.json)
 scripts/deploy.sh  Comando de despliegue de Workers Builds
-test/              Pruebas de la validación del JWT
+test/              Tests (vitest dentro del runtime de Workers, con D1 local)
 wrangler.jsonc     Configuración del Worker y de los bindings
 ```
 
@@ -38,13 +40,58 @@ wrangler.jsonc     Configuración del Worker y de los bindings
 | `npm run build` | Genera tipos, hace typecheck y compila frontend + Worker en `dist/`. |
 | `npm run typecheck` | Solo typecheck. |
 | `npm run lint` | ESLint. |
-| `npm test` | Pruebas de la validación del JWT de Access. |
+| `npm test` | Tests con vitest dentro del runtime de Workers, contra una D1 local en memoria con las migraciones aplicadas. |
 | `npm run check` | Lint + build. |
 | `npm run db:migration:new -- <nombre>` | Crea una migración nueva vacía. |
 | `npm run db:migrate:local` | Aplica las migraciones a la D1 local. |
 | `npm run deploy` | Lo que ejecuta Workers Builds: crea la D1 si no existe, aplica migraciones en remoto y despliega. |
 
 ---
+
+## Modelo de datos
+
+Definido en [`migrations/0002_modelo_datos.sql`](migrations/0002_modelo_datos.sql):
+
+| Tabla | Para qué |
+| --- | --- |
+| `ingredients` | Catálogo compartido de ingredientes (clave: slug del nombre), con sección del súper y si es de despensa fija. |
+| `recipes` | Recetas, ya adaptadas a 4 raciones. Etiquetas como array JSON; portada como clave de R2. Se archivan, no se borran. |
+| `recipe_ingredients` | Líneas de ingrediente de cada receta, en orden, con cantidad, unidad y si es estimada. |
+| `recipe_steps` | Pasos en orden, con temporizador opcional. |
+| `plan_meals` | Menú: un registro por fecha y franja (comida o cena). *Solo esquema de momento.* |
+| `cook_logs` | Cada vez que se cocina una receta: estrellas y nota. Sin registros, la receta es "nueva". *Solo esquema.* |
+| `shopping_lists`, `shopping_items` | Lista de la compra. *Solo esquema.* |
+
+Las listas que pueden crecer (secciones, proteínas, unidades) se validan en la API ([`src/shared/recipe-format.ts`](src/shared/recipe-format.ts)) y no con `CHECK` en la base de datos, para poder añadir un valor sin migración.
+
+## API
+
+Toda bajo `/api` y protegida por Access.
+
+| Método y ruta | Qué hace |
+| --- | --- |
+| `GET /api/health` | Estado de D1 (incluye número de recetas), R2 y usuario. |
+| `POST /api/recipes/import` | Importa una receta en formato `recipe@1`. `?replace=true` para reemplazar una existente. Ver [docs/formato-importacion.md](docs/formato-importacion.md). |
+| `GET /api/recipes` | Listado ligero (sin archivadas; `?include_archived=true` para incluirlas), con veces cocinada y última valoración. |
+| `GET /api/recipes/:id` | Receta completa con ingredientes y pasos en orden. |
+
+## Importar recetas
+
+El formato está en [docs/formato-importacion.md](docs/formato-importacion.md). Con Access delante, una petición desde fuera del navegador necesitaría credenciales extra, así que la forma recomendada es la **herramienta técnica de la página principal**, que usa tu sesión:
+
+1. Abre la app e inicia sesión.
+2. En **Importar receta (herramienta técnica)**, pega el JSON (por ejemplo, el contenido de [`docs/ejemplos/katsukare.json`](docs/ejemplos/katsukare.json)) y pulsa **Importar**.
+3. Si la receta ya existe, marca **Reemplazar si ya existe** para sustituirla (se conservan la portada y las valoraciones).
+
+Funciona igual desde el iPhone. Es provisional: se sustituirá por la interfaz definitiva.
+
+Alternativa sin la herramienta: en el navegador donde tengas la sesión abierta, consola de desarrollador sobre la app y:
+
+```js
+await fetch("/api/recipes/import", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(RECETA) }).then((r) => r.json());
+```
+
+Si algún día hace falta importar desde un script (sin navegador), la opción es un *service token* de Access (Zero Trust > Access controls > Service credentials) enviado en las cabeceras `CF-Access-Client-Id` y `CF-Access-Client-Secret`, más una política **Service Auth** en la aplicación. No está configurado.
 
 ## Puesta en marcha en Cloudflare (pasos manuales)
 
@@ -142,6 +189,13 @@ npm run dev                      # http://localhost:5173
 ```
 
 D1 y R2 son simulaciones locales (en `.wrangler/state`), no tocan los datos reales.
+
+Importar el ejemplo en local (Access está desactivado en `localhost`):
+
+```sh
+curl -X POST -H "Content-Type: application/json" --data-binary @docs/ejemplos/katsukare.json http://localhost:5173/api/recipes/import
+curl http://localhost:5173/api/recipes/katsukare
+```
 
 Para probar la validación real del JWT en local, deja `DEV_DISABLE_ACCESS` vacío y rellena `ACCESS_TEAM_DOMAIN` y `ACCESS_AUD` en `.dev.vars`: `/api/health` devolverá 401 sin token.
 
