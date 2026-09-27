@@ -48,88 +48,77 @@ wrangler.jsonc     Configuración del Worker y de los bindings
 
 ## Puesta en marcha en Cloudflare (pasos manuales)
 
-Hazlos en este orden. Los nombres entre **negritas** son los de las opciones del panel (en inglés, que es como aparecen). Si alguno ha cambiado de nombre, el paso sigue siendo el mismo.
+Ya está hecha (27-09-2026). Queda documentada por si hay que repetirla (por ejemplo, en otra cuenta). Los nombres en **negrita** son los del panel, en inglés; Cloudflare los cambia a menudo, así que pueden variar un poco.
+
+**Datos de esta instalación** (no son secretos):
+
+| | |
+| --- | --- |
+| URL | `https://menu-familiar.pablo-f-aneas.workers.dev` |
+| Team domain de Access | `shrill-field-6efd.cloudflareaccess.com` |
+| D1 | `menu-familiar` (Europa occidental) |
+| R2 | `menu-familiar-photos` |
 
 ### 0. Antes de empezar
 
-1. **El código tiene que estar en `main`.** Workers Builds despliega desde la rama de producción, así que fusiona en `main` la rama/PR de este paso antes de conectar el repositorio.
-2. **R2 activado en la cuenta.** Si nunca has usado R2: en el panel ve a **R2 Object Storage** y actívalo (plan gratuito; Cloudflare pide un método de pago aunque no cobre dentro de la capa gratuita). Si R2 no está activado, el despliegue no podrá crear el bucket.
-3. **Zero Trust activado.** Si nunca lo has usado: en el panel entra en **Zero Trust**, elige un *team name* (será `<team-name>.cloudflareaccess.com`) y el plan **Zero Trust Free** (también pide método de pago, sin cargo).
+1. **El código tiene que estar en `main`**, que debe ser la rama por defecto del repositorio (GitHub > **Settings** > **General** > **Default branch**).
+2. **R2 activado en la cuenta**: **Storage & databases** > **R2 object storage**. Si ofrece activarlo, plan gratuito (pide tarjeta, no cobra dentro de la capa gratuita). Si ya muestra **Create bucket**, está activo; no crees nada, el bucket lo crea el despliegue.
 
 ### 1. Conectar el repositorio (Workers Builds)
 
-1. **Workers & Pages** > **Create application** > **Import a repository** (o *Connect to Git*). Autoriza la app de Cloudflare en GitHub para el repositorio `menu-familiar` si te lo pide.
-2. Elige el repositorio `menu-familiar` y rellena:
-   - **Project name**: `menu-familiar` (tiene que coincidir exactamente con `name` en `wrangler.jsonc`).
+1. **Workers & Pages** > **Create application** > importar repositorio de GitHub. Autoriza la app de Cloudflare (basta con **Only select repositories** > `menu-familiar`).
+2. Configuración:
+   - **Project name**: `menu-familiar` (igual que `name` en `wrangler.jsonc`).
    - **Build command**: `npm run build`
-   - **Deploy command**: `npm run deploy`
-   - **Root directory**: vacío.
-   - **API token**: deja **Create new token** (el automático).
-3. Crea el proyecto. **El primer build fallará en el paso de D1**: es lo esperado hasta hacer el paso 2 (el token automático no tiene permiso sobre D1).
-4. Si en el asistente no aparecían los comandos, ve al Worker > **Settings** > **Build** > **Build configuration** y pon los mismos valores.
+   - **Deploy command**: `npm run deploy` (cuidado: el campo viene relleno con `npx wrangler deploy`; tiene que quedar `npm`, no `npx`).
+   - **Root directory**: `/`.
+   - **API token**: el que crea automáticamente (**menu-familiar build token**).
+3. Todo esto se puede cambiar después en el Worker > **Settings** > **Builds** > **Build configuration**.
 
-### 2. Dar permiso de D1 al token de Workers Builds
+### 2. Permiso de D1 en el token de Workers Builds
 
-El token que crea Workers Builds solo incluye *Account Settings (read)*, *Workers Scripts (edit)*, *Workers KV Storage (edit)* y *Workers R2 Storage (edit)*. Para crear la base de datos y aplicar migraciones necesita **D1: Edit**.
+La documentación de Cloudflare dice que el token automático no incluye D1, pero en esta instalación **ya venía con D1 · Edit**. Si un build falla al crear la D1 o al aplicar migraciones por falta de permisos: perfil > **My Profile** > **API Tokens** > **menu-familiar build token** > **Edit** > añadir **Account · D1 · Edit** > **Update token**, y **Retry build**.
 
-1. Arriba a la derecha, tu perfil > **My Profile** > **API Tokens**.
-2. Localiza el token que ha creado Workers Builds (su nombre menciona `menu-familiar` / Workers Builds) > **Edit**.
-3. En **Permissions**, añade una fila: **Account** · **D1** · **Edit**. Guarda (**Continue to summary** > **Update token**).
-4. Vuelve al Worker > **Deployments** (o **Builds**) y pulsa **Retry build** en el build fallido (o haz cualquier push a `main`).
+El primer despliegue correcto crea solo, sin copiar ningún ID: la D1 `menu-familiar` (vía [`scripts/deploy.sh`](scripts/deploy.sh)), la migración `0001_app_meta.sql` y el bucket R2 `menu-familiar-photos`. Hasta hacer los pasos 3 y 4, `/api/health` responde **500 "Access no está configurado"** (el Worker falla cerrado).
 
-Con este build se crean solos, sin copiar ningún ID:
+### 3. Activar Cloudflare Access (solo tu email)
 
-- La base de datos D1 **`menu-familiar`** (ubicación preferente Europa occidental), creada por [`scripts/deploy.sh`](scripts/deploy.sh).
-- El bucket R2 **`menu-familiar-photos`**, aprovisionado por `wrangler deploy`.
-- La migración `0001_app_meta.sql`.
-
-En este momento la página ya carga, pero `/api/health` responde **500 "Access no está configurado"**: el Worker falla cerrado mientras falten las variables del paso 4. No hay datos expuestos.
-
-### 3. Desactivar los preview builds
-
-Así las ramas que no son `main` (por ejemplo las que uso yo, Claude, para trabajar) no generan despliegues de prueba.
-
-1. Worker > **Settings** > **Build** > **Branch control**.
-2. Comprueba que la rama de producción es `main` y **desmarca Enable Preview Builds**. Guarda.
-
-Las URLs de versión/preview además están desactivadas en `wrangler.jsonc` (`"preview_urls": false`). Ver [Seguridad](#seguridad).
-
-### 4. Activar Cloudflare Access (solo tu email)
-
-1. **Workers & Pages** > `menu-familiar` > pestaña **Access** > **Protect this Worker behind Access**.
-2. Elige **All traffic** (producción y previews).
-3. En **Authentication policy** elige **Cloudflare account** (solo miembros de tu cuenta) y pulsa **Apply Access**. Lo afinamos en el punto siguiente: el asistente solo ofrece "cuenta de Cloudflare" o "dominio de email", y no queremos permitir todo `gmail.com`.
-4. Activa el código por email: **Zero Trust** > **Integrations** > **Identity providers** > **Add new identity provider** > **One-time PIN**.
-5. **Zero Trust** > **Access controls** > **Applications** > la aplicación creada para `menu-familiar` > **Configure**:
-   - **Policies**: edita la política para que el **Include** sea **Emails** = tu email (y nada más).
+1. **Activar Zero Trust**: menú izquierdo > **Zero Trust** > **Get started**, plan **Free** (pide tarjeta, no cobra). Si el botón no hace nada, es el navegador (bloqueador, extensión): en esta instalación funcionó al cambiar de navegador / ventana privada. Cloudflare asignó un *team name* aleatorio (`shrill-field-6efd`); vale igual.
+2. **Código por email**: **Zero Trust** > **Integrations** > **Identity providers** > **Add new identity provider** > **One-time PIN**.
+3. **Proteger el Worker**: **Workers & Pages** > `menu-familiar` > pestaña **Access** > **Protect this Worker behind Access** > **All traffic** > política **Cloudflare account** > **Apply Access**. (El asistente solo ofrece "cuenta de Cloudflare" o "dominio de email"; se afina en el punto siguiente.)
+4. **Restringir a tu email**: **Zero Trust** > **Access controls** > **Applications** > la aplicación de `menu-familiar`:
+   - **Policies**: la política "Cloudflare account members" no se puede editar. Crea una nueva (**Action: Allow**, **Include** > **Emails** = tu email) y después quita la antigua. Debe quedar solo la tuya.
    - **Login methods**: marca **One-time PIN**.
-   - En **Additional settings**, copia el **Application Audience (AUD) Tag** (lo necesitas en el paso 5).
-6. Tu **team domain** es `<team-name>.cloudflareaccess.com`. El *team name* está en **Zero Trust** > **Settings**. (También lo ves en la URL de la pantalla de login de Access.)
+   - Copia el **Application Audience (AUD) Tag**.
 
-> Si tu panel no tiene la pestaña **Access** en el Worker, la alternativa equivalente es crear en **Zero Trust** > **Access controls** > **Applications** > **Add an application** > **Self-hosted** una aplicación con dominio `menu-familiar.<tu-subdominio>.workers.dev`, política **Emails** = tu email y login **One-time PIN**. El resto de pasos no cambia.
+> Alternativa si el Worker no tiene pestaña **Access**: en **Zero Trust** > **Access controls** > **Applications** > **Add an application** > **Self-hosted**, dominio `menu-familiar.<tu-subdominio>.workers.dev`, política **Emails** = tu email, login **One-time PIN**.
 
-### 5. Variables de entorno del Worker
+### 4. Variables de entorno del Worker
 
-1. Worker > **Settings** > **Variables and Secrets** > **Add**:
-   - `ACCESS_TEAM_DOMAIN` (tipo **Text**) = `<team-name>.cloudflareaccess.com`
-   - `ACCESS_AUD` (tipo **Text**) = el AUD Tag del paso 4.
-2. Pulsa **Deploy** para guardar. Los siguientes despliegues desde GitHub las conservan (`"keep_vars": true` en `wrangler.jsonc`).
+**Ojo, hay dos sitios con nombre parecido.** Las variables van en **Settings** > **Runtime variables and secrets** (pestaña **Production**), **no** en **Builds** > **Variables and secrets** (esas solo existen durante la compilación y la app no las ve).
 
-No son secretos (el AUD viaja dentro de cada JWT), pero se configuran en el panel para no tenerlos en el código.
+1. **Add variable**, tipo **Variable** (no hace falta *Secret*):
+   - `ACCESS_TEAM_DOMAIN` = `<team-name>.cloudflareaccess.com`
+   - `ACCESS_AUD` = el AUD Tag del paso 3.
+2. **Deploy**.
 
-### 6. Comprobar que todo funciona
+El panel mostrará un aviso sugiriendo copiarlas a `wrangler.jsonc` "para mantener los despliegues sincronizados". No hace falta: `"keep_vars": true` en `wrangler.jsonc` hace que los despliegues desde GitHub las conserven. No son secretos (el AUD viaja dentro de cada JWT), pero así no están en el código.
 
-1. Abre `https://menu-familiar.<tu-subdominio>.workers.dev` en una ventana privada: Access debe pedirte el email y enviarte un código.
-2. Tras entrar, la página debe mostrar **Menú familiar**, **✓ D1**, **✓ R2** y tu email.
-3. Haz un cambio trivial en `main` y comprueba en **Deployments** que se despliega solo.
+### 5. Comprobar que todo funciona
 
----
+1. Abre la URL en una ventana privada: Access pide el email y envía un código.
+2. Tras entrar: **Menú familiar**, **✓ D1**, **✓ R2** y tu email.
+3. Tras un push a `main`, en **Deployments** aparece un despliegue nuevo y la página sigue mostrando los dos ✓ (esto confirma también que las variables se conservan).
+
+### Pendiente: despliegues de prueba (previews)
+
+Workers Builds puede crear un despliegue de prueba (*Preview*) por cada push a una rama que no sea `main`. `"preview_urls": false` en `wrangler.jsonc` desactiva las URLs de versión, y Access en modo **All traffic** protege también las previews, así que no quedan públicas. Queda por revisar en **Settings** > **Builds** (pestaña **Previews Base** / **Branch control**) si conviene desactivar los preview builds del todo.
 
 ## Seguridad
 
 - **Dos capas.** Access bloquea en el borde a cualquiera que no sea tu email. Además, el Worker valida en cada petición a `/api` el JWT de Access (cabecera `Cf-Access-Jwt-Assertion`, o la cookie `CF_Authorization` como respaldo): firma contra los certificados de `https://<team>.cloudflareaccess.com/cdn-cgi/access/certs`, emisor, AUD y caducidad. Sin token válido responde **401**; si faltan `ACCESS_TEAM_DOMAIN` o `ACCESS_AUD` responde **500** y no deja pasar a nadie.
 - **Desarrollo local.** La validación solo se puede desactivar con `DEV_DISABLE_ACCESS=true` en `.dev.vars` (que no se sube ni se despliega) **y** si la petición llega a `localhost`/`127.0.0.1`. En `workers.dev` no tiene efecto aunque alguien definiera la variable.
-- **URLs de preview: desactivadas.** `"preview_urls": false` en `wrangler.jsonc` y **Enable Preview Builds** desmarcado. Aun si se reactivasen, Access en modo **All traffic** también las protege.
+- **URLs de versión y previews.** `"preview_urls": false` en `wrangler.jsonc`, y Access en modo **All traffic** protege también las previews (ver "Pendiente" arriba).
 - **Sin secretos en el repo.** `.dev.vars` y `.env*` están en `.gitignore`; solo se versiona `.dev.vars.example`. El token de Cloudflare vive en Workers Builds, no en GitHub.
 - La `/` y los ficheros estáticos no pasan por el Worker (los sirve la plataforma), así que para ellos la protección es solo Access. No contienen datos: todos los datos salen de `/api`.
 
