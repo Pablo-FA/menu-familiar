@@ -110,15 +110,21 @@ El panel mostrará un aviso sugiriendo copiarlas a `wrangler.jsonc` "para manten
 2. Tras entrar: **Menú familiar**, **✓ D1**, **✓ R2** y tu email.
 3. Tras un push a `main`, en **Deployments** aparece un despliegue nuevo y la página sigue mostrando los dos ✓ (esto confirma también que las variables se conservan).
 
-### Pendiente: despliegues de prueba (previews)
+### 6. Desactivar los despliegues de prueba (previews)
 
-Workers Builds puede crear un despliegue de prueba (*Preview*) por cada push a una rama que no sea `main`. `"preview_urls": false` en `wrangler.jsonc` desactiva las URLs de versión, y Access en modo **All traffic** protege también las previews, así que no quedan públicas. Queda por revisar en **Settings** > **Builds** (pestaña **Previews Base** / **Branch control**) si conviene desactivar los preview builds del todo.
+Por defecto, Workers Builds compila cada push a una rama que no sea `main` (por ejemplo, las ramas `claude/...` en las que trabaja Claude). Aquí no sirven para nada, así que están apagados:
+
+- Worker > **Settings** > **Builds** > pestaña **Previews Base** > interruptor **Builds for Preview branches** desactivado.
+- Además, `"preview_urls": false` en `wrangler.jsonc`: aunque se reactivaran, no generarían URLs (el panel lo indica con el aviso "Preview URLs are disabled"). Y Access en modo **All traffic** también las protegería.
+- Ojo: en la pestaña **Production**, el desplegable **Branch control** es la rama de *producción*; tiene que ser `main`.
+
+---
 
 ## Seguridad
 
 - **Dos capas.** Access bloquea en el borde a cualquiera que no sea tu email. Además, el Worker valida en cada petición a `/api` el JWT de Access (cabecera `Cf-Access-Jwt-Assertion`, o la cookie `CF_Authorization` como respaldo): firma contra los certificados de `https://<team>.cloudflareaccess.com/cdn-cgi/access/certs`, emisor, AUD y caducidad. Sin token válido responde **401**; si faltan `ACCESS_TEAM_DOMAIN` o `ACCESS_AUD` responde **500** y no deja pasar a nadie.
 - **Desarrollo local.** La validación solo se puede desactivar con `DEV_DISABLE_ACCESS=true` en `.dev.vars` (que no se sube ni se despliega) **y** si la petición llega a `localhost`/`127.0.0.1`. En `workers.dev` no tiene efecto aunque alguien definiera la variable.
-- **URLs de versión y previews.** `"preview_urls": false` en `wrangler.jsonc`, y Access en modo **All traffic** protege también las previews (ver "Pendiente" arriba).
+- **Previews desactivados.** Builds de ramas que no son `main` apagados, `"preview_urls": false` en `wrangler.jsonc`, y Access en modo **All traffic** protegería también las previews.
 - **Sin secretos en el repo.** `.dev.vars` y `.env*` están en `.gitignore`; solo se versiona `.dev.vars.example`. El token de Cloudflare vive en Workers Builds, no en GitHub.
 - La `/` y los ficheros estáticos no pasan por el Worker (los sirve la plataforma), así que para ellos la protección es solo Access. No contienen datos: todos los datos salen de `/api`.
 
