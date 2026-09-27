@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { HealthResponse } from "../shared/health";
+import { ImportTool } from "./ImportTool";
 
 type State =
   | { status: "loading" }
@@ -28,13 +29,15 @@ function Check({ label, ok, detail }: { label: string; ok: boolean; detail: stri
 export function App() {
   const [state, setState] = useState<State>({ status: "loading" });
 
-  useEffect(() => {
+  const refresh = useCallback(() => {
     fetchHealth()
       .then((health) => setState({ status: "done", health }))
       .catch((err: unknown) =>
         setState({ status: "error", message: err instanceof Error ? err.message : String(err) }),
       );
   }, []);
+
+  useEffect(refresh, [refresh]);
 
   return (
     <main>
@@ -48,6 +51,9 @@ export function App() {
       {state.status === "done" && (
         <ul>
           <Check label="D1" ok={state.health.d1.ok} detail={state.health.d1.detail} />
+          <li>
+            <strong>Recetas:</strong> {state.health.d1.recipeCount ?? "?"}
+          </li>
           <Check label="R2" ok={state.health.r2.ok} detail={state.health.r2.detail} />
           <li>
             <strong>Usuario:</strong>{" "}
@@ -57,6 +63,7 @@ export function App() {
           </li>
         </ul>
       )}
+      {state.status === "done" && <ImportTool onImported={refresh} />}
     </main>
   );
 }
