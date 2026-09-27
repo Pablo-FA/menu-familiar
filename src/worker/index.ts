@@ -1,22 +1,10 @@
 import { Hono } from "hono";
 import type { HealthResponse } from "../shared/health";
 import { isLocalBypass, verifyAccess } from "./access";
+import type { AppEnv } from "./env";
+import { recipes } from "./recipes/routes";
 
-export interface Bindings {
-  DB: D1Database;
-  PHOTOS: R2Bucket;
-  ACCESS_TEAM_DOMAIN?: string;
-  ACCESS_AUD?: string;
-  /** Solo para desarrollo local (.dev.vars). Ver isLocalBypass. */
-  DEV_DISABLE_ACCESS?: string;
-}
-
-interface Variables {
-  userEmail: string | null;
-  accessMode: "enforced" | "disabled-local";
-}
-
-const app = new Hono<{ Bindings: Bindings; Variables: Variables }>().basePath("/api");
+const app = new Hono<AppEnv>().basePath("/api");
 
 // Toda la API exige un JWT de Access válido.
 app.use("*", async (c, next) => {
@@ -43,18 +31,24 @@ interface CheckResult {
   detail: string;
 }
 
-async function checkD1(db: D1Database): Promise<CheckResult & { schemaVersion: string | null }> {
+async function checkD1(db: D1Database): Promise<HealthResponse["d1"]> {
   try {
     const row = await db
       .prepare("SELECT value FROM app_meta WHERE key = ?")
       .bind("schema_version")
       .first<{ value: string }>();
     if (!row) {
-      return { ok: false, detail: "No existe la fila schema_version en app_meta", schemaVersion: null };
+      return { ok: false, detail: "No existe la fila schema_version en app_meta", schemaVersion: null, recipeCount: null };
     }
-    return { ok: true, detail: `Esquema versión ${row.value}`, schemaVersion: row.value };
+    const count = await db.prepare("SELECT COUNT(*) AS n FROM recipes").first<{ n: number }>();
+    return {
+      ok: true,
+      detail: `Esquema versión ${row.value}`,
+      schemaVersion: row.value,
+      recipeCount: count?.n ?? null,
+    };
   } catch (err) {
-    return { ok: false, detail: errorMessage(err), schemaVersion: null };
+    return { ok: false, detail: errorMessage(err), schemaVersion: null, recipeCount: null };
   }
 }
 
@@ -89,6 +83,8 @@ app.get("/health", async (c) => {
   };
   return c.json(body, ok ? 200 : 503);
 });
+
+app.route("/recipes", recipes);
 
 app.notFound((c) => c.json({ error: "No encontrado" }, 404));
 
