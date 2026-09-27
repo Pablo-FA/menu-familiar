@@ -29,7 +29,9 @@ export type Unit = (typeof UNITS)[number];
 export const SLOTS = ["lunch", "dinner"] as const;
 export type Slot = (typeof SLOTS)[number];
 
-export const RECIPE_FORMAT = "menu-familiar/recipe@1";
+import { RECIPE_FORMAT } from "./formats";
+
+export { RECIPE_FORMAT };
 
 const text = (max: number) => z.string().trim().min(1, "No puede estar vacío").max(max);
 const optionalText = (max: number) => text(max).nullish().default(null);

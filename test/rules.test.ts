@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import { addDays, isIsoDate, longDate, madridNow, shortDate, weekdayName } from "../src/shared/dates";
 import { currentSlot, pastMealLabel, pickSlotToShow } from "../src/shared/meals";
 import { pickRatingPrompt, type PastMeal } from "../src/shared/rating-prompt";
+import { resolveTheme } from "../src/shared/theme";
+import { formatQuantity } from "../src/client/format";
 
 // 4 de octubre de 2026 (sábado). Madrid está en UTC+2 (horario de verano).
 const at = (localTime: string) => new Date(`2026-10-04T${localTime}:00+02:00`);
@@ -97,5 +99,32 @@ describe("aviso de valoración", () => {
     expect(pastMealLabel("2026-10-03", "lunch", "2026-10-04", weekdayName)).toBe("Ayer comisteis");
     expect(pastMealLabel("2026-10-04", "lunch", "2026-10-04", weekdayName)).toBe("Hoy comisteis");
     expect(pastMealLabel("2026-10-02", "dinner", "2026-10-04", weekdayName)).toBe("El viernes cenasteis");
+  });
+});
+
+describe("tema", () => {
+  it("con el sistema en oscuro siempre es night", () => {
+    expect(resolveTheme({ systemDark: true, todaySlot: "lunch", hour: 10 })).toBe("night");
+    expect(resolveTheme({ systemDark: true, todaySlot: null, hour: 10 })).toBe("night");
+  });
+
+  it("en Hoy depende de la comida mostrada", () => {
+    expect(resolveTheme({ systemDark: false, todaySlot: "lunch", hour: 21 })).toBe("day");
+    expect(resolveTheme({ systemDark: false, todaySlot: "dinner", hour: 9 })).toBe("night");
+  });
+
+  it("en el resto depende de la hora", () => {
+    expect(resolveTheme({ systemDark: false, todaySlot: null, hour: 16 })).toBe("day");
+    expect(resolveTheme({ systemDark: false, todaySlot: null, hour: 17 })).toBe("night");
+  });
+});
+
+describe("formato de cantidades", () => {
+  it("combina cantidad y unidad, sin unidad para 'ud' y con ≈ si es estimada", () => {
+    expect(formatQuantity({ quantity: 600, unit: "g", estimated: false })).toBe("600 g");
+    expect(formatQuantity({ quantity: 2, unit: "ud", estimated: false })).toBe("2");
+    expect(formatQuantity({ quantity: 1, unit: "cda", estimated: true })).toBe("≈ 1 cda");
+    expect(formatQuantity({ quantity: 0.5, unit: "l", estimated: false })).toBe("0,5 l");
+    expect(formatQuantity({ quantity: null, unit: null, estimated: true })).toBe("");
   });
 });

@@ -3,7 +3,9 @@ import { isIsoDate } from "./dates";
 import { MEAL_STATUSES } from "./meals";
 import { SLOTS, formatPath, recipeImportSchema, type ValidationError } from "./recipe-format";
 
-export const PLAN_FORMAT = "menu-familiar/plan@1";
+import { PLAN_FORMAT } from "./formats";
+
+export { PLAN_FORMAT };
 
 const isoDate = z.string().refine(isIsoDate, "Debe ser una fecha real con formato AAAA-MM-DD");
 const recipeId = z.string().min(1).max(80);
