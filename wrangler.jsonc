@@ -1,0 +1,35 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "menu-familiar",
+  "main": "src/worker/index.ts",
+  "compatibility_date": "2026-09-20",
+  "observability": { "enabled": true },
+
+  // Frontend (build de Vite) servido como static assets. Las rutas /api/*
+  // pasan siempre por el Worker; el resto se sirve como SPA.
+  "assets": {
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*"]
+  },
+
+  // URL pública: https://menu-familiar.<tu-subdominio>.workers.dev
+  "workers_dev": true,
+  // Sin URLs de versión/preview: solo existe la URL de producción (protegida por Access).
+  "preview_urls": false,
+
+  // ACCESS_TEAM_DOMAIN y ACCESS_AUD se configuran en el panel
+  // (Settings > Variables and Secrets). keep_vars evita que un deploy las borre.
+  "keep_vars": true,
+
+  // Sin database_id: se busca/crea por nombre (ver scripts/deploy.sh).
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "menu-familiar",
+      "migrations_dir": "migrations"
+    }
+  ],
+
+  // Sin bucket_name: wrangler deploy lo aprovisiona como "menu-familiar-photos".
+  "r2_buckets": [{ "binding": "PHOTOS" }]
+}

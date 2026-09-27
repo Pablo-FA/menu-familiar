@@ -1,0 +1,10 @@
+# Copia este archivo a .dev.vars para desarrollo local. .dev.vars NO se sube a git
+# ni se despliega: en producción las variables se configuran en el panel de Cloudflare.
+
+# Desactiva la validación del JWT de Access. Solo tiene efecto si la petición llega
+# a localhost/127.0.0.1 (ver src/worker/access.ts). Nunca la definas en producción.
+DEV_DISABLE_ACCESS=true
+
+# Si prefieres probar la validación real en local, deja DEV_DISABLE_ACCESS vacío y rellena:
+# ACCESS_TEAM_DOMAIN=tu-equipo.cloudflareaccess.com
+# ACCESS_AUD=
