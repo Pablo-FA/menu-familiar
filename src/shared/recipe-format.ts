@@ -1,0 +1,116 @@
+import { z } from "zod";
+import { SLUG_PATTERN, slugify } from "./slug";
+
+// Mensajes de error de zod en español.
+z.config(z.locales.es());
+
+/** Secciones del súper. Añadir una aquí no requiere migración. */
+export const AISLES = [
+  "verdura-fruta",
+  "carne-pescado",
+  "huevos-lacteos",
+  "conservas",
+  "cereales-pan",
+  "despensa",
+  "congelados",
+  "otros",
+] as const;
+export type Aisle = (typeof AISLES)[number];
+
+export const PROTEINS = ["verdura", "legumbre", "pescado", "carne", "ave", "huevo"] as const;
+export type Protein = (typeof PROTEINS)[number];
+
+export const SUITS = ["lunch", "dinner", "both"] as const;
+export type Suits = (typeof SUITS)[number];
+
+export const UNITS = ["g", "kg", "ml", "l", "ud", "cda", "cdta", "pizca"] as const;
+export type Unit = (typeof UNITS)[number];
+
+export const SLOTS = ["lunch", "dinner"] as const;
+export type Slot = (typeof SLOTS)[number];
+
+export const RECIPE_FORMAT = "menu-familiar/recipe@1";
+
+const text = (max: number) => z.string().trim().min(1, "No puede estar vacío").max(max);
+const optionalText = (max: number) => text(max).nullish().default(null);
+
+const recipeId = z
+  .string()
+  .max(80)
+  .refine((id) => SLUG_PATTERN.test(id), {
+    error: (issue) =>
+      `Debe ser un slug (minúsculas, números y guiones), por ejemplo "${slugify(String(issue.input)) || "mi-receta"}"`,
+  });
+
+export const importIngredientSchema = z
+  .strictObject({
+    text: text(200),
+    name: text(80).refine((name) => slugify(name).length > 0, "Debe contener letras o números"),
+    quantity: z.number().positive().nullish().default(null),
+    unit: z.enum(UNITS).nullish().default(null),
+    estimated: z.boolean().default(false),
+    aisle: z.enum(AISLES),
+    pantry: z.boolean().default(false),
+  })
+  .superRefine((ing, ctx) => {
+    // Sin las dos piezas no se pueden sumar cantidades en la lista de la compra.
+    if (ing.quantity !== null && ing.unit === null) {
+      ctx.addIssue({ code: "custom", path: ["unit"], message: "Si hay cantidad, falta la unidad" });
+    }
+    if (ing.quantity === null && ing.unit !== null) {
+      ctx.addIssue({ code: "custom", path: ["quantity"], message: "Si hay unidad, falta la cantidad" });
+    }
+  });
+
+export const importStepSchema = z.strictObject({
+  text: text(2000),
+  timer_seconds: z.number().int().positive().nullish().default(null),
+});
+
+export const recipeImportSchema = z.strictObject({
+  format: z.literal(RECIPE_FORMAT, { error: `Debe ser "${RECIPE_FORMAT}"` }),
+  id: recipeId,
+  title: text(200),
+  minutes: z.number().int().positive(),
+  protein: z.enum(PROTEINS),
+  suits: z.enum(SUITS),
+  kcal_adult: z.number().int().positive().nullish().default(null),
+  kcal_estimated: z.boolean().default(false),
+  source_url: z.url({ protocol: /^https?$/ }).nullish().default(null),
+  adaptation_notes: optionalText(4000),
+  freezer_note: optionalText(1000),
+  tags: z.array(text(40)).max(20).default([]),
+  ingredients: z.array(importIngredientSchema).min(1).max(60),
+  steps: z.array(importStepSchema).min(1).max(40),
+});
+
+/** Receta tal como llega en el JSON (antes de aplicar valores por defecto). */
+export type RecipeImportInput = z.input<typeof recipeImportSchema>;
+/** Receta ya validada, con los valores por defecto aplicados. */
+export type RecipeImport = z.output<typeof recipeImportSchema>;
+
+export interface ValidationError {
+  /** Ruta del campo, p. ej. "ingredients[3].unit". Vacía si el error es del objeto raíz. */
+  field: string;
+  message: string;
+}
+
+export function formatPath(path: readonly PropertyKey[]): string {
+  return path.reduce<string>((acc, key) => {
+    if (typeof key === "number") return `${acc}[${key}]`;
+    return acc ? `${acc}.${String(key)}` : String(key);
+  }, "");
+}
+
+export type ParseResult =
+  | { ok: true; recipe: RecipeImport }
+  | { ok: false; errors: ValidationError[] };
+
+export function parseRecipeImport(input: unknown): ParseResult {
+  const result = recipeImportSchema.safeParse(input);
+  if (result.success) return { ok: true, recipe: result.data };
+  return {
+    ok: false,
+    errors: result.error.issues.map((issue) => ({ field: formatPath(issue.path), message: issue.message })),
+  };
+}

@@ -46,3 +46,28 @@ small {
     color: #f85149;
   }
 }
+
+section {
+  margin-top: 2rem;
+}
+
+h2 {
+  font-size: 1.1rem;
+}
+
+textarea {
+  box-sizing: border-box;
+  width: 100%;
+  font: 0.85rem ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+label,
+button {
+  display: block;
+  margin: 0.5rem 0;
+}
+
+button {
+  font: inherit;
+  padding: 0.4rem 1rem;
+}
