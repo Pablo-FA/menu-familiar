@@ -182,6 +182,7 @@ describe("GET /api/recipes", () => {
       kcal_estimated: true,
       tags: ["japonesa", "curry", "empanado"],
       cover_photo_key: null,
+      photo_url: null,
       archived: false,
       times_cooked: 0,
       last_cooked_at: null,

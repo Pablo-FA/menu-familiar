@@ -22,9 +22,37 @@ export async function importRecipe(
   recipe: RecipeImport,
   options: { replace: boolean },
 ): Promise<ImportOutcome> {
-  const existing = await db.prepare("SELECT 1 FROM recipes WHERE id = ?").bind(recipe.id).first();
+  const existing = await recipeExists(db, recipe.id);
   if (existing && !options.replace) return { status: "conflict" };
 
+  const { statements, createdIngredients } = await prepareRecipeWrites(db, recipe, { replace: options.replace });
+
+  try {
+    await db.batch(statements);
+  } catch (err) {
+    // Otra importación creó la misma receta entre la comprobación y el batch.
+    if (!options.replace && /UNIQUE constraint failed: recipes\.id/.test(String(err))) {
+      return { status: "conflict" };
+    }
+    throw err;
+  }
+
+  return { status: "imported", replaced: existing, createdIngredients };
+}
+
+export async function recipeExists(db: D1Database, id: string): Promise<boolean> {
+  return Boolean(await db.prepare("SELECT 1 FROM recipes WHERE id = ?").bind(id).first());
+}
+
+/**
+ * Prepara (sin ejecutar) las sentencias que guardan una receta, para poder
+ * combinarlas con otras en un mismo db.batch() (p. ej. al importar un plan@1).
+ */
+export async function prepareRecipeWrites(
+  db: D1Database,
+  recipe: RecipeImport,
+  options: { replace: boolean },
+): Promise<{ statements: D1PreparedStatement[]; createdIngredients: string[] }> {
   // Un ingrediente por slug; si se repite en la receta, cuenta la primera aparición.
   const catalogEntries = new Map<string, { name: string; aisle: string; pantry: boolean }>();
   const lines = recipe.ingredients.map((ing) => {
@@ -109,15 +137,5 @@ export async function importRecipe(
     );
   });
 
-  try {
-    await db.batch(statements);
-  } catch (err) {
-    // Otra importación creó la misma receta entre la comprobación y el batch.
-    if (!options.replace && /UNIQUE constraint failed: recipes\.id/.test(String(err))) {
-      return { status: "conflict" };
-    }
-    throw err;
-  }
-
-  return { status: "imported", replaced: Boolean(existing), createdIngredients };
+  return { statements, createdIngredients };
 }
