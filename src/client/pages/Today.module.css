@@ -1,0 +1,380 @@
+.page {
+  position: relative;
+  max-width: var(--page-max);
+  margin: 0 auto;
+}
+
+/* ---------- Portada ---------- */
+
+.cover {
+  position: relative;
+  height: 100vh;
+  height: 100svh;
+  overflow: hidden;
+  background: #000;
+  color: #fff;
+}
+
+.photo {
+  position: absolute;
+  inset: 0;
+  will-change: transform;
+}
+
+.photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.placeholder {
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(90% 60% at 20% 15%, rgba(255, 255, 255, 0.1), transparent 70%), var(--graphite);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding-bottom: 18vh;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 13px;
+}
+
+.shadeTop,
+.shadeBottom {
+  position: absolute;
+  left: 0;
+  right: 0;
+  pointer-events: none;
+}
+
+.shadeTop {
+  top: 0;
+  height: 170px;
+  background: linear-gradient(rgba(0, 0, 0, 0.38), transparent);
+}
+
+.shadeBottom {
+  bottom: 0;
+  height: 440px;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.62));
+}
+
+.dateHeader {
+  position: absolute;
+  top: calc(var(--safe-top) + 10px);
+  left: 16px;
+  right: 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.weekday {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.date {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.15;
+}
+
+.titleBlock {
+  position: absolute;
+  left: 20px;
+  right: 20px;
+  bottom: calc(48px + var(--safe-bottom));
+  transform-origin: 0% 100%;
+}
+
+.slotLabel {
+  margin: 0 0 6px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.9;
+}
+
+.title {
+  margin: 0;
+  font-size: 34px;
+  font-weight: 700;
+  line-height: 1.08;
+}
+
+.titleButton {
+  all: unset;
+  cursor: pointer;
+  border-radius: 8px;
+}
+
+.titleButton:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 4px;
+}
+
+.metaRow {
+  margin-top: 16px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.coverPlay {
+  flex: none;
+  width: 68px;
+  height: 68px;
+  border-radius: 50%;
+  border: 0;
+  background: rgba(255, 255, 255, 0.94);
+  color: #000;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+}
+
+.coverPlay:focus-visible,
+.dateHeader :focus-visible {
+  outline: 2px solid #fff;
+}
+
+.note {
+  margin: 10px 0 0;
+  font-size: 15px;
+  opacity: 0.85;
+}
+
+/* ---------- Hoja de contenido ---------- */
+
+.sheet {
+  position: relative;
+  z-index: 1;
+  margin-top: -34px;
+  border-radius: 34px 34px 0 0;
+  background: var(--bg);
+  padding: 10px 16px calc(var(--nav-height) + var(--nav-bottom) + 32px);
+  min-height: 60vh;
+}
+
+.handle {
+  width: 36px;
+  height: 5px;
+  margin: 0 auto 18px;
+  border-radius: 999px;
+  background: var(--fg2);
+  opacity: 0.35;
+}
+
+.sectionHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin: 8px 4px 12px;
+}
+
+.sectionTitle {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.servings {
+  font-size: 15px;
+  color: var(--fg2);
+}
+
+.ingredients {
+  list-style: none;
+  margin: 0 0 28px;
+  padding: 4px 18px;
+}
+
+.ingredient {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 13px 0;
+  font-size: 16px;
+}
+
+.ingredient + .ingredient {
+  border-top: 0.5px solid var(--line);
+}
+
+.qty {
+  flex: none;
+  color: var(--fg2);
+  text-align: right;
+}
+
+.steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.step {
+  display: flex;
+  gap: 14px;
+  padding: 16px;
+  font-size: 16px;
+  line-height: 1.45;
+}
+
+.stepNumber {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: var(--chip);
+  border: 0.5px solid var(--chip-border);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.stepText {
+  margin: 4px 0 0;
+}
+
+.timer {
+  margin-top: 10px;
+  color: var(--fg);
+}
+
+/* ---------- Elementos fijos ligados al scroll ---------- */
+
+/* Desenfoque superior en dos capas: nunca se ve texto nítido tras la barra de estado ni la barra fija. */
+.blurTint,
+.blurStrong {
+  position: fixed;
+  top: 0;
+  left: var(--page-gutter);
+  right: var(--page-gutter);
+  z-index: 20;
+  pointer-events: none;
+  opacity: 0;
+}
+
+.blurTint {
+  height: 200px;
+  background: var(--top-tint);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  -webkit-mask-image: linear-gradient(#000 60%, rgba(0, 0, 0, 0.6) 78%, transparent);
+  mask-image: linear-gradient(#000 60%, rgba(0, 0, 0, 0.6) 78%, transparent);
+}
+
+.blurStrong {
+  height: 170px;
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
+  -webkit-mask-image: linear-gradient(#000 55%, transparent);
+  mask-image: linear-gradient(#000 55%, transparent);
+}
+
+.bar {
+  position: fixed;
+  z-index: 25;
+  top: calc(var(--safe-top) + 8px);
+  left: calc(var(--page-gutter) + 12px);
+  right: calc(var(--page-gutter) + 12px);
+  height: 60px;
+  padding: 0 8px 0 10px;
+  border-radius: 30px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  opacity: 0;
+  pointer-events: none;
+  transform-origin: 50% 0%;
+}
+
+.barText {
+  flex: 1;
+  min-width: 0;
+}
+
+.barMeta {
+  margin: 0;
+  font-size: 12px;
+  color: var(--fg2);
+}
+
+.barTitle {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.barPlay {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 0;
+  background: var(--btn);
+  color: var(--btn-fg);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+/* ---------- Estados vacío y de carga ---------- */
+
+.empty {
+  min-height: 100vh;
+  min-height: 100svh;
+  padding: calc(var(--safe-top) + 24px) 20px calc(var(--nav-height) + var(--nav-bottom) + 24px);
+  display: flex;
+  flex-direction: column;
+}
+
+.emptyDate {
+  margin: 0;
+}
+
+.emptyCard {
+  margin-top: 28px;
+  padding: 32px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  text-align: center;
+}
+
+.emptyCard p {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.status {
+  padding: calc(var(--safe-top) + 24px) 20px;
+  color: var(--fg2);
+}

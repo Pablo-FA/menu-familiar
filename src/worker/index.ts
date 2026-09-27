@@ -2,6 +2,8 @@ import { Hono } from "hono";
 import type { HealthResponse } from "../shared/health";
 import { isLocalBypass, verifyAccess } from "./access";
 import type { AppEnv } from "./env";
+import { photos } from "./photos";
+import { plan } from "./plan";
 import { recipes } from "./recipes/routes";
 
 const app = new Hono<AppEnv>().basePath("/api");
@@ -52,19 +54,21 @@ async function checkD1(db: D1Database): Promise<HealthResponse["d1"]> {
   }
 }
 
-const R2_HEALTH_KEY = "_health/check.txt";
-
 async function checkR2(bucket: R2Bucket): Promise<CheckResult> {
+  // Clave única por petición: dos comprobaciones simultáneas no se pisan.
+  const key = `_health/${crypto.randomUUID()}.txt`;
   try {
     const written = new Date().toISOString();
-    await bucket.put(R2_HEALTH_KEY, written);
-    const obj = await bucket.get(R2_HEALTH_KEY);
+    await bucket.put(key, written);
+    const obj = await bucket.get(key);
     if (!obj) return { ok: false, detail: "El objeto de prueba no se pudo leer" };
     const read = await obj.text();
     if (read !== written) return { ok: false, detail: "El objeto leído no coincide con el escrito" };
     return { ok: true, detail: "Escritura y lectura correctas" };
   } catch (err) {
     return { ok: false, detail: errorMessage(err) };
+  } finally {
+    await bucket.delete(key).catch(() => undefined);
   }
 }
 
@@ -85,6 +89,8 @@ app.get("/health", async (c) => {
 });
 
 app.route("/recipes", recipes);
+app.route("/photos", photos);
+app.route("/", plan);
 
 app.notFound((c) => c.json({ error: "No encontrado" }, 404));
 

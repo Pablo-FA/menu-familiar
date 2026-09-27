@@ -1,69 +1,74 @@
-import { useCallback, useEffect, useState } from "react";
-import type { HealthResponse } from "../shared/health";
-import { ImportTool } from "./ImportTool";
-
-type State =
-  | { status: "loading" }
-  | { status: "error"; message: string }
-  | { status: "done"; health: HealthResponse };
-
-async function fetchHealth(): Promise<HealthResponse> {
-  const res = await fetch("/api/health", { credentials: "same-origin" });
-  // 503 también trae el cuerpo con el detalle de cada pieza.
-  if (res.status !== 200 && res.status !== 503) {
-    const body = (await res.json().catch(() => null)) as { error?: string } | null;
-    throw new Error(`HTTP ${res.status}${body?.error ? `: ${body.error}` : ""}`);
-  }
-  return (await res.json()) as HealthResponse;
-}
-
-function Check({ label, ok, detail }: { label: string; ok: boolean; detail: string }) {
-  return (
-    <li>
-      <span className={ok ? "ok" : "fail"}>{ok ? "✓" : "✗"}</span> <strong>{label}</strong>{" "}
-      <small>{detail}</small>
-    </li>
-  );
-}
+import { BookOpen, CalendarDays, ChefHat, Compass, ShoppingBasket } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import type { RatingPrompt } from "../shared/api";
+import { api } from "./api";
+import { BottomNav, NavRefContext } from "./components/BottomNav";
+import { ComingSoon } from "./components/ComingSoon";
+import { RatingSheet } from "./components/RatingSheet";
+import { Today } from "./pages/Today";
+import { Tools } from "./pages/Tools";
+import { Link, matchRoute, usePathname, type Route } from "./router";
+import { ThemeProvider } from "./theme";
 
 export function App() {
-  const [state, setState] = useState<State>({ status: "loading" });
-
-  const refresh = useCallback(() => {
-    fetchHealth()
-      .then((health) => setState({ status: "done", health }))
-      .catch((err: unknown) =>
-        setState({ status: "error", message: err instanceof Error ? err.message : String(err) }),
-      );
-  }, []);
-
-  useEffect(refresh, [refresh]);
+  const route = matchRoute(usePathname());
+  const navRef = useRef<HTMLElement>(null);
 
   return (
-    <main>
-      <h1>Menú familiar</h1>
-      {state.status === "loading" && <p>Comprobando…</p>}
-      {state.status === "error" && (
-        <p>
-          <span className="fail">✗</span> No se pudo consultar /api/health: {state.message}
-        </p>
-      )}
-      {state.status === "done" && (
-        <ul>
-          <Check label="D1" ok={state.health.d1.ok} detail={state.health.d1.detail} />
-          <li>
-            <strong>Recetas:</strong> {state.health.d1.recipeCount ?? "?"}
-          </li>
-          <Check label="R2" ok={state.health.r2.ok} detail={state.health.r2.detail} />
-          <li>
-            <strong>Usuario:</strong>{" "}
-            {state.health.access.mode === "disabled-local"
-              ? "(Access desactivado en local)"
-              : (state.health.access.email ?? "(sin email en el token)")}
-          </li>
-        </ul>
-      )}
-      {state.status === "done" && <ImportTool onImported={refresh} />}
-    </main>
+    <ThemeProvider>
+      <NavRefContext.Provider value={navRef}>
+        <Screen route={route} />
+        {route.name !== "cook" && <BottomNav ref={navRef} active={route.name} />}
+        <RatingPromptOnOpen route={route} />
+      </NavRefContext.Provider>
+    </ThemeProvider>
   );
+}
+
+function Screen({ route }: { route: Route }) {
+  switch (route.name) {
+    case "today":
+      return <Today />;
+    case "planner":
+      return <ComingSoon title="Planificador" Icon={CalendarDays} />;
+    case "recipes":
+      return <ComingSoon title="Recetas" Icon={BookOpen} />;
+    case "shopping":
+      return <ComingSoon title="Compra" Icon={ShoppingBasket} />;
+    case "import":
+      return <Tools />;
+    case "cook":
+      return (
+        <ComingSoon title="Modo cocina" Icon={ChefHat}>
+          <Link href="/">Volver a Hoy</Link>
+        </ComingSoon>
+      );
+    case "not-found":
+      return (
+        <ComingSoon title="No encontrado" Icon={Compass}>
+          <Link href="/">Volver a Hoy</Link>
+        </ComingSoon>
+      );
+  }
+}
+
+/**
+ * Aviso de valoración: se consulta una sola vez por apertura de la app (al montar),
+ * y nunca si la app se abre en el modo cocina. La regla de cuándo toca está en el
+ * servidor (src/shared/rating-prompt.ts).
+ */
+function RatingPromptOnOpen({ route }: { route: Route }) {
+  const [openedIn] = useState(route.name);
+  const [prompt, setPrompt] = useState<RatingPrompt | null>(null);
+
+  useEffect(() => {
+    if (openedIn === "cook") return;
+    api
+      .get<RatingPrompt | null>("/rating-prompt")
+      .then(setPrompt)
+      .catch(() => undefined); // si falla, simplemente no se pregunta
+  }, [openedIn]);
+
+  if (!prompt || route.name === "cook") return null;
+  return <RatingSheet prompt={prompt} onDone={() => setPrompt(null)} />;
 }

@@ -1,5 +1,6 @@
 import type { RecipeDetail, RecipeIngredient, RecipeStep, RecipeSummary } from "../../shared/api";
 import type { Aisle, Protein, Suits, Unit } from "../../shared/recipe-format";
+import { photoUrl } from "../photos";
 
 interface SummaryRow {
   id: string;
@@ -44,6 +45,7 @@ function toSummary(row: SummaryRow): RecipeSummary {
     kcal_estimated: row.kcal_estimated === 1,
     tags: JSON.parse(row.tags) as string[],
     cover_photo_key: row.cover_photo_key,
+    photo_url: row.cover_photo_key ? photoUrl(row.cover_photo_key) : null,
     archived: row.archived === 1,
     times_cooked: row.times_cooked,
     last_cooked_at: row.last_cooked_at,

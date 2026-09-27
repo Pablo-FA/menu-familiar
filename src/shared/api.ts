@@ -1,4 +1,5 @@
-import type { Aisle, Protein, Suits, Unit } from "./recipe-format";
+import type { MealStatus } from "./meals";
+import type { Aisle, Protein, Slot, Suits, Unit } from "./recipe-format";
 
 /** Elemento de GET /api/recipes. */
 export interface RecipeSummary {
@@ -11,6 +12,8 @@ export interface RecipeSummary {
   kcal_estimated: boolean;
   tags: string[];
   cover_photo_key: string | null;
+  /** URL para mostrar la portada (/api/photos/…), o null si no hay. */
+  photo_url: string | null;
   archived: boolean;
   times_cooked: number;
   last_cooked_at: string | null;
@@ -55,4 +58,33 @@ export interface ImportResponse {
 export interface ApiError {
   error: string;
   errors?: { field: string; message: string }[];
+}
+
+export interface DayMeal {
+  status: MealStatus;
+  note: string | null;
+  recipe: RecipeDetail | null;
+}
+
+/** GET /api/day/:date */
+export interface DayResponse {
+  date: string;
+  lunch: DayMeal;
+  dinner: DayMeal;
+}
+
+/** GET /api/rating-prompt */
+export interface RatingPrompt {
+  date: string;
+  slot: Slot;
+  recipe: { id: string; title: string; photo_url: string | null };
+}
+
+/** POST /api/plan/import */
+export interface PlanImportResponse {
+  meals: number;
+  created_recipes: string[];
+  /** Recetas incluidas en el plan que ya existían: no se modifican. */
+  existing_recipes: string[];
+  created_ingredients: string[];
 }

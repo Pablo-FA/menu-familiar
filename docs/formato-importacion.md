@@ -103,26 +103,44 @@ No se admiten campos que no estén en esta tabla: una errata (`"minutos"`) da er
 
 ---
 
-## `menu-familiar/plan@1`: un menú (todavía no implementado)
+## `menu-familiar/plan@1`: un menú
 
-Formato que Claude devolverá más adelante para planificar varios días de una vez. **La app aún no lo acepta.**
+Para planificar varios días de una vez. Se pega en `/importar` igual que una receta (la página detecta el formato) o se envía a `POST /api/plan/import`.
 
 ```json
 {
   "format": "menu-familiar/plan@1",
   "meals": [
     { "date": "2026-10-05", "slot": "lunch", "recipe_id": "katsukare" },
-    { "date": "2026-10-05", "slot": "dinner", "status": "away" }
+    { "date": "2026-10-05", "slot": "dinner", "status": "away", "note": "Cena en casa de los abuelos" },
+    { "date": "2026-10-06", "slot": "lunch", "recipe_id": "lentejas-estofadas" }
   ],
-  "recipes": []
+  "recipes": [
+    { "format": "menu-familiar/recipe@1", "id": "lentejas-estofadas", "…": "receta completa en formato recipe@1" }
+  ]
 }
 ```
 
-| Campo | Notas |
-| --- | --- |
-| `meals[].date` | `YYYY-MM-DD`. |
-| `meals[].slot` | `lunch` · `dinner`. Cada par fecha + franja es único: importar un menú sobre un día ya planificado lo sustituye. |
-| `meals[].recipe_id` | Receta planificada. Puede ser una existente o una incluida en `recipes`. |
-| `meals[].status` | `planned` (por defecto si hay `recipe_id`) · `away` (fuera de casa) · `empty` (sin planificar). |
-| `meals[].note` | Opcional. |
-| `recipes` | Recetas nuevas en formato `recipe@1`, que se importan antes de planificar. |
+| Campo | Obligatorio | Notas |
+| --- | --- | --- |
+| `format` | sí | Exactamente `"menu-familiar/plan@1"`. |
+| `meals` | sí (1–62) | Una entrada por día y franja. No puede repetirse la misma fecha y franja. |
+| `meals[].date` | sí | `AAAA-MM-DD`, fecha real. |
+| `meals[].slot` | sí | `lunch` (comida) · `dinner` (cena). |
+| `meals[].recipe_id` | según estado | Receta planificada: una que ya exista en la app o una incluida en `recipes`. |
+| `meals[].status` | no | `planned` · `away` (fuera de casa) · `empty` (sin planificar). Si falta: `planned` si hay `recipe_id`, `empty` si no. `planned` exige receta; `away` y `empty` no la llevan. |
+| `meals[].note` | no | Texto libre corto. |
+| `recipes` | no (`[]`) | Recetas nuevas en formato `recipe@1` (máximo 30). |
+
+### Qué hace la app al importar un menú
+
+- Valida todo antes de escribir nada. Errores legibles con la ruta del campo (`meals[2].recipe_id`).
+- Las recetas de `recipes` que **no existen** se crean con las mismas reglas que `recipe@1` (el catálogo manda, etc.). Las que **ya existen no se modifican**; la respuesta las enumera en `existing_recipes`. Para cambiar una receta existente, impórtala sola con "Reemplazar".
+- Cada comida sustituye lo que hubiera planificado en esa fecha y franja.
+- Recetas y comidas se escriben en un único lote atómico: o todo o nada.
+
+### Instrucciones para Claude al generar un menú
+
+- Reutiliza los `id` de recetas que ya estén en la app cuando repitas plato; incluye en `recipes` solo las nuevas.
+- Marca con `"status": "away"` las comidas fuera de casa, en vez de omitirlas, para que la app no las muestre como vacías.
+- Devuelve solo el JSON.

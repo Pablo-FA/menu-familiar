@@ -1,10 +1,31 @@
 <!doctype html>
-<html lang="es">
+<html lang="es" data-theme="day">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- viewport-fit=cover: el contenido llega bajo la Dynamic Island; se respeta con env(safe-area-inset-*). -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="#DDE0E4" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Menú familiar" />
+    <!-- use-credentials: la app está detrás de Cloudflare Access y el manifest necesita la cookie de sesión. -->
+    <link rel="manifest" href="/manifest.webmanifest" crossorigin="use-credentials" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <link rel="icon" href="/icons/icon.svg" type="image/svg+xml" />
     <title>Menú familiar</title>
+    <script>
+      // Tema antes del primer pintado (evita un destello del tema equivocado). La regla
+      // completa está en src/shared/theme.ts y React la vuelve a aplicar al arrancar.
+      (function () {
+        var dark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+        var hour = Number(new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Madrid", hour: "2-digit", hourCycle: "h23" }).format(new Date()));
+        var night = dark || hour >= 17;
+        document.documentElement.dataset.theme = night ? "night" : "day";
+        document.querySelector('meta[name="theme-color"]').setAttribute("content", night ? "#0A0E14" : "#DDE0E4");
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
