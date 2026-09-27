@@ -2,7 +2,7 @@
 
 App web personal para planificar el menú familiar. La usa una sola persona desde iPhone, iPad, Windows y Mac.
 
-**Estado actual: paso 1 (modelo de datos y API de recetas).** Existe el modelo de datos completo, la importación de recetas en JSON y la API para leerlas. Todavía no hay interfaz: solo la página técnica de estado, con una herramienta provisional para importar recetas.
+**Estado actual: paso 2 (sistema visual y pantalla Hoy).** Existe el sistema visual "glass", la navegación con cuatro secciones y la pantalla **Hoy** con datos reales (portada, ingredientes y pasos de la comida o la cena del día), además del aviso para valorar la comida anterior. Los menús se cargan pegando un JSON `plan@1` en `/importar`. Planificador, Recetas, Compra y el modo cocina están marcados como "Próximamente".
 
 ## Stack
 
@@ -16,15 +16,17 @@ App web personal para planificar el menú familiar. La usa una sola persona desd
 | Cloudflare Access | Protege toda la app (solo tu email). Además, el Worker valida el JWT de Access en cada petición a `/api` ([`src/worker/access.ts`](src/worker/access.ts)). |
 | Workers Builds | Cada push a `main` aplica las migraciones pendientes y despliega. Sin GitHub Actions ni tokens en GitHub. |
 | zod | Validación de los datos que entran en la API, con mensajes en español. |
+| Estilos | CSS plano: variables de tema en `src/client/styles/tokens.css`, componentes base (`.glass`, `.glass-bar`, `.chip`, `.chip-photo`, `.pill-button`) en `base.css` y CSS Modules por pantalla. Iconos de trazo de `lucide-react`. |
 
 URL: `https://menu-familiar.<tu-subdominio>.workers.dev`.
 
 ### Estructura
 
 ```
-src/client/        Frontend React (página técnica de estado + importador provisional)
-src/worker/        Worker: API Hono, validación de Access y rutas de recetas
-src/shared/        Tipos y esquemas zod compartidos entre Worker y cliente
+src/client/        Frontend React: pages/ (pantallas), components/, styles/ (tokens.css y base.css)
+src/worker/        Worker: API Hono, validación de Access, recetas, plan, fotos
+src/shared/        Tipos, esquemas zod y reglas (fechas, tema, aviso de valoración) compartidos
+public/            manifest.webmanifest e iconos (placeholder) de la PWA
 migrations/        Migraciones de D1 (SQL, numeradas)
 docs/              Formato de importación y ejemplos (docs/ejemplos/*.json)
 scripts/deploy.sh  Comando de despliegue de Workers Builds
@@ -71,16 +73,37 @@ Toda bajo `/api` y protegida por Access.
 | Método y ruta | Qué hace |
 | --- | --- |
 | `GET /api/health` | Estado de D1 (incluye número de recetas), R2 y usuario. |
-| `POST /api/recipes/import` | Importa una receta en formato `recipe@1`. `?replace=true` para reemplazar una existente. Ver [docs/formato-importacion.md](docs/formato-importacion.md). |
-| `GET /api/recipes` | Listado ligero (sin archivadas; `?include_archived=true` para incluirlas), con veces cocinada y última valoración. |
+| `POST /api/recipes/import` | Importa una receta `recipe@1`. `?replace=true` para reemplazar una existente. |
+| `GET /api/recipes` | Listado ligero (sin archivadas; `?include_archived=true` para incluirlas). |
 | `GET /api/recipes/:id` | Receta completa con ingredientes y pasos en orden. |
+| `POST /api/plan/import` | Importa un menú `plan@1`: primero las recetas nuevas que traiga y después las comidas, todo en un lote atómico. |
+| `PUT /api/plan/:fecha/:franja` | Planifica una franja (`lunch`/`dinner`): `{ status, recipe_id?, note? }`. |
+| `GET /api/day/:fecha` | `{ date, lunch, dinner }`, cada franja con estado, nota y receta completa (con `photo_url`, `last_stars`, `times_cooked`). |
+| `GET /api/rating-prompt` | Comida pendiente de valorar, o `null` (regla en [`src/shared/rating-prompt.ts`](src/shared/rating-prompt.ts)). |
+| `POST /api/rating-prompt/skip` | Pospone el aviso: `{ date, slot }`. |
+| `POST /api/cook-logs` | Registra que se ha cocinado: `{ recipe_id, plan_meal_date?, plan_meal_slot?, stars?, note? }`. |
+| `GET /api/photos/<clave>` | Sirve una foto de R2 con caché inmutable; 404 si no existe. |
+
+Formatos de importación: [docs/formato-importacion.md](docs/formato-importacion.md).
+
+## Pantallas y reglas
+
+- **Hoy** (`/`): muestra una comida a pantalla completa. Antes de las 17:00 (hora de Madrid) la comida y después la cena; si esa franja no tiene receta y la otra sí, la otra. El botón sol/luna alterna entre comida y cena.
+- **Tema**: con el sistema en modo oscuro, siempre oscuro. Si no, en Hoy la comida usa el tema claro y la cena el oscuro; en el resto de pantallas, claro hasta las 17:00 y oscuro después. Regla en [`src/shared/theme.ts`](src/shared/theme.ts).
+- **Aviso de valoración**: al abrir la app (nunca en el modo cocina), si la comida planificada más reciente ya pasada no está valorada, tiene menos de 2 días y hoy no se ha respondido ya a ningún aviso. Cerrarlo sin guardar lo pospone al día siguiente.
+- **Planificador, Recetas, Compra y Modo cocina** (`/cocinar/:fecha/:franja`): "Próximamente".
+- **Importar** (`/importar`): pegar un JSON `recipe@1` o `plan@1` (se detecta solo) y estado técnico.
+
+## Instalar en el iPhone
+
+Abre la app en Safari, inicia sesión en Access y usa **Compartir > Añadir a pantalla de inicio**. Se abre a pantalla completa (`display: standalone`), con el contenido bajo la Dynamic Island respetando las áreas seguras. Los iconos son provisionales.
 
 ## Importar recetas
 
-El formato está en [docs/formato-importacion.md](docs/formato-importacion.md). Con Access delante, una petición desde fuera del navegador necesitaría credenciales extra, así que la forma recomendada es la **herramienta técnica de la página principal**, que usa tu sesión:
+El formato está en [docs/formato-importacion.md](docs/formato-importacion.md). Recetas (`recipe@1`) y menús (`plan@1`) se importan igual. Con Access delante, una petición desde fuera del navegador necesitaría credenciales extra, así que la forma recomendada es la **herramienta técnica de la página principal**, que usa tu sesión:
 
 1. Abre la app e inicia sesión.
-2. En **Importar receta (herramienta técnica)**, pega el JSON (por ejemplo, el contenido de [`docs/ejemplos/katsukare.json`](docs/ejemplos/katsukare.json)) y pulsa **Importar**.
+2. Ve a `/importar`, pega el JSON (por ejemplo, el contenido de [`docs/ejemplos/katsukare.json`](docs/ejemplos/katsukare.json)) y pulsa **Importar**. La página detecta sola si es una receta o un menú.
 3. Si la receta ya existe, marca **Reemplazar si ya existe** para sustituirla (se conservan la portada y las valoraciones).
 
 Funciona igual desde el iPhone. Es provisional: se sustituirá por la interfaz definitiva.
@@ -231,4 +254,4 @@ Wrangler solo descarga objetos de uno en uno, así que para una copia completa u
 2. `rclone config` > nuevo remoto `r2`, tipo **Amazon S3**, proveedor **Cloudflare**, con esas credenciales y endpoint.
 3. `rclone sync r2:menu-familiar-photos ./backup-fotos`
 
-(El objeto `_health/check.txt` lo escribe el endpoint de salud; se puede ignorar.)
+(Los objetos bajo `_health/` son de la comprobación de estado y se pueden ignorar o borrar.)
