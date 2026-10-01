@@ -31,6 +31,11 @@
   --sun: #c98a00;
   --sheet-modal: rgba(250, 250, 248, 0.72);
   --focus: #0a64d8;
+  /* Modo cocina */
+  --seg-on: #1d1d1f;
+  --seg: rgba(0, 0, 0, 0.1);
+  --accent: #c98a00;
+  --halo-neutral: rgba(255, 255, 255, 0.55);
 }
 
 :root[data-theme="night"] {
@@ -58,6 +63,10 @@
   --sun: #ffd60a;
   --sheet-modal: rgba(40, 40, 44, 0.55);
   --focus: #6cb4ff;
+  --seg-on: #ffffff;
+  --seg: rgba(255, 255, 255, 0.16);
+  --accent: #ffd60a;
+  --halo-neutral: rgba(120, 140, 175, 0.28);
 }
 
 :root {
