@@ -378,3 +378,31 @@
   padding: calc(var(--safe-top) + 24px) 20px;
   color: var(--fg2);
 }
+
+/* ---------- Vista suelta de receta (/receta/:id) ---------- */
+
+.backButton,
+.barBack {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  cursor: pointer;
+}
+
+.backButton {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.16);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  border: 0.5px solid rgba(255, 255, 255, 0.22);
+}
+
+.barBack {
+  color: var(--fg);
+  background: var(--chip);
+  border: 0.5px solid var(--chip-border);
+}

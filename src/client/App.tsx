@@ -1,11 +1,14 @@
-import { BookOpen, CalendarDays, Compass, ShoppingBasket } from "lucide-react";
+import { BookOpen, Compass, ShoppingBasket } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { RatingPrompt } from "../shared/api";
 import { api } from "./api";
 import { BottomNav, NavRefContext } from "./components/BottomNav";
 import { ComingSoon } from "./components/ComingSoon";
 import { RatingSheet } from "./components/RatingSheet";
+import { ToastProvider } from "./components/Toast";
 import { Cook } from "./cook/Cook";
+import { RecipeView } from "./pages/RecipeView";
+import { Planner } from "./planner/Planner";
 import { Today } from "./pages/Today";
 import { Tools } from "./pages/Tools";
 import { Link, matchRoute, usePathname, type Route } from "./router";
@@ -17,11 +20,13 @@ export function App() {
 
   return (
     <ThemeProvider>
+      <ToastProvider>
       <NavRefContext.Provider value={navRef}>
         <Screen route={route} />
         {route.name !== "cook" && <BottomNav ref={navRef} active={route.name} />}
         <RatingPromptOnOpen route={route} />
       </NavRefContext.Provider>
+      </ToastProvider>
     </ThemeProvider>
   );
 }
@@ -31,7 +36,7 @@ function Screen({ route }: { route: Route }) {
     case "today":
       return <Today />;
     case "planner":
-      return <ComingSoon title="Planificador" Icon={CalendarDays} />;
+      return <Planner />;
     case "recipes":
       return <ComingSoon title="Recetas" Icon={BookOpen} />;
     case "shopping":
@@ -40,6 +45,8 @@ function Screen({ route }: { route: Route }) {
       return <Tools />;
     case "cook":
       return <Cook date={route.date} slot={route.slot} />;
+    case "recipe":
+      return <RecipeView id={route.id} />;
     case "not-found":
       return (
         <ComingSoon title="No encontrado" Icon={Compass}>

@@ -1,9 +1,9 @@
 import { useEffect, useRef, type ReactNode } from "react";
-import styles from "./Cook.module.css";
+import styles from "./Dialog.module.css";
 
 /**
  * <dialog> modal nativo: foco atrapado, Escape y capa superior. onClose se llama al
- * pulsar Escape o tocar fuera del contenido.
+ * pulsar Escape o tocar fuera del contenido (el contenido ocupa solo una parte).
  */
 export function Dialog({ label, onClose, children }: { label: string; onClose: () => void; children: ReactNode }) {
   const ref = useRef<HTMLDialogElement>(null);

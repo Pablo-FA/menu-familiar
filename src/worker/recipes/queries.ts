@@ -1,5 +1,6 @@
 import type { RecipeDetail, RecipeIngredient, RecipeStep, RecipeSummary } from "../../shared/api";
 import type { Aisle, Course, Protein, Suits, Unit } from "../../shared/recipe-format";
+import { madridNow } from "../../shared/dates";
 import { photoUrl } from "../photos";
 
 interface SummaryRow {
@@ -17,6 +18,7 @@ interface SummaryRow {
   times_cooked: number;
   last_cooked_at: string | null;
   last_stars: number | null;
+  avg_stars: number | null;
 }
 
 interface DetailRow extends SummaryRow {
@@ -33,7 +35,8 @@ const SUMMARY_COLUMNS = `
   (SELECT COUNT(*) FROM cook_logs l WHERE l.recipe_id = r.id) AS times_cooked,
   (SELECT MAX(l.cooked_at) FROM cook_logs l WHERE l.recipe_id = r.id) AS last_cooked_at,
   (SELECT l.stars FROM cook_logs l WHERE l.recipe_id = r.id AND l.stars IS NOT NULL
-     ORDER BY l.cooked_at DESC, l.id DESC LIMIT 1) AS last_stars`;
+     ORDER BY l.cooked_at DESC, l.id DESC LIMIT 1) AS last_stars,
+  (SELECT ROUND(AVG(l.stars), 1) FROM cook_logs l WHERE l.recipe_id = r.id AND l.stars IS NOT NULL) AS avg_stars`;
 
 function toSummary(row: SummaryRow): RecipeSummary {
   return {
@@ -51,6 +54,8 @@ function toSummary(row: SummaryRow): RecipeSummary {
     archived: row.archived === 1,
     times_cooked: row.times_cooked,
     last_cooked_at: row.last_cooked_at,
+    last_cooked: row.last_cooked_at ? madridNow(new Date(row.last_cooked_at)).date : null,
+    avg_stars: row.avg_stars,
     last_stars: row.last_stars,
   };
 }

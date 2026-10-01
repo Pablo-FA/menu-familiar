@@ -2,7 +2,7 @@
 
 App web personal para planificar el menú familiar. La usa una sola persona desde iPhone, iPad, Windows y Mac.
 
-**Estado actual: paso 3 (modo cocina).** Funciona el ciclo diario completo: **Hoy** muestra la comida o la cena del día, el **modo cocina** la guía paso a paso (cantidades por paso, temporizadores, lista de ingredientes, pantalla siempre encendida) y al terminar se hace la **foto de portada** y se valora. Los menús se cargan pegando un JSON `plan@1` en `/importar`. Planificador, Recetas y Compra están marcados como "Próximamente".
+**Estado actual: paso 4 (Planificador).** Además de lo anterior, el **Planificador** muestra la semana (tira o mes), el equilibrio de proteínas, y permite elegir, cambiar, mover o intercambiar comidas con deshacer. Se planifica con Claude copiando el contexto de la semana y pegando su respuesta con vista previa. Antes: **paso 3 (modo cocina).** Funciona el ciclo diario completo: **Hoy** muestra la comida o la cena del día, el **modo cocina** la guía paso a paso (cantidades por paso, temporizadores, lista de ingredientes, pantalla siempre encendida) y al terminar se hace la **foto de portada** y se valora. Los menús se cargan pegando un JSON `plan@1` en `/importar`. Planificador, Recetas y Compra están marcados como "Próximamente".
 
 ## Stack
 
@@ -74,7 +74,7 @@ Toda bajo `/api` y protegida por Access.
 | --- | --- |
 | `GET /api/health` | Estado de D1 (incluye número de recetas), R2 y usuario. |
 | `POST /api/recipes/import` | Importa una receta `recipe@1`. `?replace=true` para reemplazar una existente. |
-| `GET /api/recipes` | Listado ligero (sin archivadas; `?include_archived=true` para incluirlas). |
+| `GET /api/recipes` | Listado ligero (sin archivadas; `?include_archived=true` para incluirlas), con `course`, `suits`, `photo_url`, veces cocinada, `last_cooked` y `avg_stars`. Se amplió este endpoint en vez de crear otro: el recetario es pequeño y así hay un único tipo de resumen. |
 | `GET /api/recipes/:id` | Receta completa con ingredientes y pasos en orden. |
 | `POST /api/plan/import` | Importa un menú `plan@1`: primero las recetas nuevas que traiga y después las comidas, todo en un lote atómico. |
 | `PUT /api/plan/:fecha/:franja` | Planifica una franja (`lunch`/`dinner`): `{ status, recipe_id?, note? }`. |
@@ -84,6 +84,10 @@ Toda bajo `/api` y protegida por Access.
 | `POST /api/cook-logs` | Registra que se ha cocinado: `{ recipe_id, plan_meal_date?, plan_meal_slot?, cooked_at?, stars?, note? }`. |
 | `PATCH /api/cook-logs/:id` | Completa una valoración: `{ stars?, note? }`. |
 | `POST /api/recipes/:id/photo` | Nueva portada (cuerpo: JPEG, máx. 10 MB). Se guarda en R2 como `recipes/{id}/{timestamp}.jpg` y se borra la anterior. |
+| `GET /api/plan?from&to` | Franjas de un rango (máx. 62 días) con receta resumida y valoración. |
+| `POST /api/plan/batch` | Escribe varias franjas en una transacción (mover, intercambiar, deshacer). |
+| `POST /api/plan/preview` | Qué cambiaría un `plan@1`, sin escribir: añadidos, sustituciones, recetas nuevas, errores. |
+| `GET /api/claude-context?week=` | Contexto `contexto@1` de la semana para planificar con Claude. |
 | `GET /api/photos/<clave>` | Sirve una foto de R2 con caché inmutable; 404 si no existe. |
 
 Formatos de importación: [docs/formato-importacion.md](docs/formato-importacion.md).
@@ -96,7 +100,9 @@ Formatos de importación: [docs/formato-importacion.md](docs/formato-importacion
 - **Modo cocina** (`/cocinar/:fecha/:franja`): un paso a pantalla completa, con las cantidades que usa (de `uses` o detectadas en el texto), temporizadores simultáneos (guardados como hora de fin, sobreviven a recargas), hoja de ingredientes para marcar y gestos laterales. El progreso se guarda en `localStorage` (`cocina:{fecha}:{franja}`) durante 12 h. Pide Wake Lock para que no se apague la pantalla.
 - **Al terminar**: foto de portada (cámara o galería, reducida a 1600 px y JPEG 0,82 en el móvil), estrellas opcionales y nota. "Valorar después" registra que se ha cocinado sin estrellas, y el aviso del día siguiente lo pregunta.
 - **Tipos de plato** (`course`): solo los `main` se pueden planificar como comida o cena.
-- **Planificador, Recetas y Compra**: "Próximamente".
+- **Planificador** (`/planificador?semana=AAAA-MM-DD`): semana de lunes a domingo; el domingo abre la siguiente. Equilibrio con mínimos semanales (legumbre 4, pescado 3; en `src/shared/balance.ts`). Selector de recetas con buscador, filtros y tres órdenes; acciones sobre cada hueco; mover/intercambiar; valorar comidas pasadas. URL del proyecto de Claude en `src/client/config.ts`.
+- **Vista de receta** (`/receta/:id`): portada y hoja de Hoy para una receta suelta.
+- **Recetas y Compra**: "Próximamente".
 - **Importar** (`/importar`): pegar un JSON `recipe@1` o `plan@1` (se detecta solo) y estado técnico.
 
 ## Instalar en el iPhone

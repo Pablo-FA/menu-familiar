@@ -1,4 +1,4 @@
-import { Camera, Clock, Play } from "lucide-react";
+import { Camera, ChevronLeft, Clock, Play } from "lucide-react";
 import { useEffect, useRef, useState, type RefObject } from "react";
 import type { DayMeal, DayResponse, RecipeDetail } from "../../shared/api";
 import { longDate, madridNow, shortDate, weekdayName } from "../../shared/dates";
@@ -59,15 +59,32 @@ function EmptyDay({ date }: { date: string }) {
       <h1 className={`${styles.date} ${styles.emptyDate}`}>{longDate(date)}</h1>
       <div className={`${styles.emptyCard} glass`}>
         <p>Nada planificado para hoy</p>
-        <Link href="/importar" className="pill-button pill-button--primary">
-          Pegar un menú
+        <Link href="/planificador" className="pill-button pill-button--primary">
+          Planificar
         </Link>
       </div>
     </main>
   );
 }
 
-function MealView({ date, slot, meal, onToggle }: { date: string; slot: Slot; meal: DayMeal; onToggle: () => void }) {
+/**
+ * Portada + hoja de una receta. En Hoy lleva fecha, sol/luna y play; con `onBack` es la
+ * vista suelta de una receta (/receta/:id): botón de volver y sin sol/luna ni play.
+ */
+export function MealView({
+  date,
+  slot,
+  meal,
+  onToggle,
+  onBack,
+}: {
+  date: string;
+  slot: Slot;
+  meal: DayMeal;
+  onToggle?: () => void;
+  onBack?: () => void;
+}) {
+  const standalone = onBack !== undefined;
   const recipe = meal.recipe;
   const coverRef = useRef<HTMLElement>(null);
   const photoRef = useRef<HTMLDivElement>(null);
@@ -112,15 +129,23 @@ function MealView({ date, slot, meal, onToggle }: { date: string; slot: Slot; me
         <div className={styles.shadeBottom} />
 
         <header ref={dateRef} className={styles.dateHeader}>
-          <SunMoonCoin slot={slot} onToggle={onToggle} sunColor="var(--sun-cover)" moonColor="#fff" />
-          <div>
-            <p className={styles.weekday}>{weekdayName(date)}</p>
-            <h1 className={styles.date}>{longDate(date)}</h1>
-          </div>
+          {standalone ? (
+            <button type="button" className={styles.backButton} onClick={onBack} aria-label="Volver">
+              <ChevronLeft size={24} strokeWidth={2.2} aria-hidden="true" />
+            </button>
+          ) : (
+            <>
+              <SunMoonCoin slot={slot} onToggle={onToggle ?? (() => undefined)} sunColor="var(--sun-cover)" moonColor="#fff" />
+              <div>
+                <p className={styles.weekday}>{weekdayName(date)}</p>
+                <h1 className={styles.date}>{longDate(date)}</h1>
+              </div>
+            </>
+          )}
         </header>
 
         <div ref={titleRef} className={styles.titleBlock}>
-          <p className={styles.slotLabel}>{SLOT_LABEL[slot]}</p>
+          {!standalone && <p className={styles.slotLabel}>{SLOT_LABEL[slot]}</p>}
           {recipe ? (
             <>
               <h2 className={styles.title}>
@@ -130,9 +155,11 @@ function MealView({ date, slot, meal, onToggle }: { date: string; slot: Slot; me
               </h2>
               <div className={styles.metaRow}>
                 <RecipePills recipe={recipe} cooked={meal.cook_log !== null} />
-                <button type="button" className={styles.coverPlay} onClick={cook} aria-label="Cocinar">
-                  <Play size={28} fill="currentColor" strokeWidth={0} aria-hidden="true" />
-                </button>
+                {!standalone && (
+                  <button type="button" className={styles.coverPlay} onClick={cook} aria-label="Cocinar">
+                    <Play size={28} fill="currentColor" strokeWidth={0} aria-hidden="true" />
+                  </button>
+                )}
               </div>
             </>
           ) : (
@@ -150,16 +177,22 @@ function MealView({ date, slot, meal, onToggle }: { date: string; slot: Slot; me
           <div ref={blurTintRef} className={styles.blurTint} aria-hidden="true" />
           <div ref={blurStrongRef} className={styles.blurStrong} aria-hidden="true" />
           <div ref={barRef} className={`${styles.bar} glass-bar`} inert>
-            <SunMoonCoin slot={slot} onToggle={onToggle} sunColor="var(--sun)" moonColor="var(--fg)" size={24} />
+            {standalone ? (
+              <button type="button" className={styles.barBack} onClick={onBack} aria-label="Volver">
+                <ChevronLeft size={22} strokeWidth={2.2} aria-hidden="true" />
+              </button>
+            ) : (
+              <SunMoonCoin slot={slot} onToggle={onToggle ?? (() => undefined)} sunColor="var(--sun)" moonColor="var(--fg)" size={24} />
+            )}
             <div className={styles.barText}>
-              <p className={styles.barMeta}>
-                {SLOT_LABEL[slot]} · {shortDate(date)}
-              </p>
+              <p className={styles.barMeta}>{standalone ? `${recipe.minutes} min` : `${SLOT_LABEL[slot]} · ${shortDate(date)}`}</p>
               <p className={styles.barTitle}>{recipe.title}</p>
             </div>
-            <button type="button" className={styles.barPlay} onClick={cook} aria-label="Cocinar">
-              <Play size={20} fill="currentColor" strokeWidth={0} aria-hidden="true" />
-            </button>
+            {!standalone && (
+              <button type="button" className={styles.barPlay} onClick={cook} aria-label="Cocinar">
+                <Play size={20} fill="currentColor" strokeWidth={0} aria-hidden="true" />
+              </button>
+            )}
           </div>
         </>
       )}

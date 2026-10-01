@@ -14,6 +14,7 @@ import { pickRatingPrompt, RATING_WINDOW_DAYS, type PastMeal } from "../shared/r
 import { SLOTS, type Slot } from "../shared/recipe-format";
 import type { AppEnv } from "./env";
 import { photoUrl } from "./photos";
+import { checkMealRecipes, NOT_MAIN, upsertMeal } from "./plan-common";
 import { prepareRecipeWrites, recipeExists } from "./recipes/import";
 import { getRecipe } from "./recipes/queries";
 
@@ -35,18 +36,6 @@ function isSlot(value: string): value is Slot {
   return (SLOTS as readonly string[]).includes(value);
 }
 
-function upsertMeal(db: D1Database, date: string, slot: Slot, status: string, recipeId: string | null, note: string | null) {
-  // Si cambia lo planificado, el aviso de valoración vuelve a empezar para esa comida.
-  return db
-    .prepare(
-      `INSERT INTO plan_meals (date, slot, status, recipe_id, note) VALUES (?, ?, ?, ?, ?)
-       ON CONFLICT (date, slot) DO UPDATE SET
-         status = excluded.status, recipe_id = excluded.recipe_id, note = excluded.note,
-         rating_skipped_at = CASE WHEN plan_meals.recipe_id IS excluded.recipe_id
-                                  THEN plan_meals.rating_skipped_at ELSE NULL END`,
-    )
-    .bind(date, slot, status, recipeId, note);
-}
 
 /** Registro de cocinado más reciente de una comida planificada. */
 function latestCookLog(db: D1Database, date: string, slot: Slot): Promise<CookLog | null> {
@@ -59,8 +48,6 @@ function latestCookLog(db: D1Database, date: string, slot: Slot): Promise<CookLo
     .first<CookLog>();
 }
 
-const NOT_MAIN = (id: string, course: string) =>
-  `"${id}" no es un plato principal (course "${course}"): no se puede planificar como comida o cena`;
 
 // ---------- GET /api/day/:date ----------
 
@@ -132,26 +119,8 @@ plan.post("/plan/import", async (c) => {
   const { meals, recipes } = parsed.data;
   const db = c.env.DB;
 
-  // Qué recetas existen ya: las del plan que ya están en la base de datos no se tocan.
-  const referenced = [...new Set([...recipes.map((r) => r.id), ...meals.flatMap((m) => (m.recipe_id ? [m.recipe_id] : []))])];
-  const { results } = await db
-    .prepare("SELECT id, course FROM recipes WHERE id IN (SELECT value FROM json_each(?))")
-    .bind(JSON.stringify(referenced))
-    .all<{ id: string; course: string }>();
-  // Tipo de plato de cada receta: el de la base de datos si ya existe (no se modifica), si no el del plan.
-  const courseOf = new Map<string, string>(recipes.map((r) => [r.id, r.course]));
-  results.forEach((r) => courseOf.set(r.id, r.course));
-  const existing = new Set(results.map((r) => r.id));
-
-  const problems = meals.flatMap((meal, i) => {
-    if (!meal.recipe_id) return [];
-    const course = courseOf.get(meal.recipe_id);
-    if (course === undefined) {
-      return [{ field: `meals[${i}].recipe_id`, message: `No existe la receta "${meal.recipe_id}" ni viene en "recipes"` }];
-    }
-    if (course !== "main") return [{ field: `meals[${i}].recipe_id`, message: NOT_MAIN(meal.recipe_id, course) }];
-    return [];
-  });
+  // Las recetas del plan que ya existen no se modifican.
+  const { problems, existing } = await checkMealRecipes(db, meals, recipes);
   if (problems.length > 0) return c.json<ApiError>({ error: "El menú no es válido", errors: problems }, 400);
 
   const statements: D1PreparedStatement[] = [];

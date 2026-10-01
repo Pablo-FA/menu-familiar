@@ -37,6 +37,7 @@ export type Route =
   | { name: "shopping" }
   | { name: "import" }
   | { name: "cook"; date: string; slot: Slot }
+  | { name: "recipe"; id: string }
   | { name: "not-found" };
 
 export function matchRoute(path: string): Route {
@@ -48,6 +49,8 @@ export function matchRoute(path: string): Route {
   if (clean === "/importar") return { name: "import" };
   const cook = /^\/cocinar\/(\d{4}-\d{2}-\d{2})\/(lunch|dinner)$/.exec(clean);
   if (cook?.[1] && cook[2]) return { name: "cook", date: cook[1], slot: cook[2] as Slot };
+  const recipe = /^\/receta\/([^/]+)$/.exec(clean);
+  if (recipe?.[1]) return { name: "recipe", id: decodeURIComponent(recipe[1]) };
   return { name: "not-found" };
 }
 

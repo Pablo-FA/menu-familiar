@@ -9,7 +9,7 @@ import { api } from "../api";
 import { capitalize, formatQuantity, minutesLabel } from "../format";
 import { navigate } from "../router";
 import { useTheme } from "../theme";
-import { playAlarm, unlockAudio } from "./alarm";
+import { startAlarm, stopAlarm, unlockAudio } from "./alarm";
 import { ConfirmCancel } from "./ConfirmCancel";
 import styles from "./Cook.module.css";
 import { FinishScreen } from "./FinishScreen";
@@ -96,7 +96,6 @@ function CookSession({ date, slot, recipe, meal }: { date: string; slot: Slot; r
       const finished = newlyFinished(timersRef.current, t);
       if (finished.length === 0) return;
       timersRef.current = timersRef.current.map((x) => (finished.some((f) => f.id === x.id) ? { ...x, notified: true } : x));
-      playAlarm();
       setToasts((list) => [...list, ...finished]);
       setProgress((p) => ({
         ...p,
@@ -133,6 +132,14 @@ function CookSession({ date, slot, recipe, meal }: { date: string; slot: Slot; r
       cancelled = true;
     };
   }, [recipe.photo_url]);
+
+  // La alarma suena mientras haya algún aviso de "¡listo!" sin atender (máx. 1 min).
+  const ringing = toasts.length > 0;
+  useEffect(() => {
+    if (ringing) startAlarm();
+    else stopAlarm();
+  }, [ringing]);
+  useEffect(() => () => stopAlarm(), []);
 
   const goTo = useCallback(
     (index: number) => {
@@ -292,7 +299,10 @@ function CookSession({ date, slot, recipe, meal }: { date: string; slot: Slot; r
       {toasts[0] && (
         <button type="button" className={`${styles.toast} glass-bar`} role="alert" onClick={() => setToasts((t) => t.slice(1))}>
           <BellRing size={22} strokeWidth={2.2} aria-hidden="true" />
-          {capitalize(toasts[0].label)}: ¡listo!
+          <span>
+            {capitalize(toasts[0].label)}: ¡listo!
+            <span className={styles.toastHint}>Toca para parar</span>
+          </span>
         </button>
       )}
 

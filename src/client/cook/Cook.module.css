@@ -319,6 +319,13 @@
   }
 }
 
+.toastHint {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--fg2);
+}
+
 .toast svg {
   color: var(--accent);
   flex: none;
@@ -408,12 +415,9 @@
 }
 
 .checklist {
-  flex: 1;
-  overflow-y: auto;
   margin: 0;
-  padding: 0 20px calc(var(--safe-bottom) + 16px);
+  padding: 0 4px;
   list-style: none;
-  -webkit-overflow-scrolling: touch;
 }
 
 .checkRow {
