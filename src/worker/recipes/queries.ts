@@ -1,5 +1,5 @@
 import type { RecipeDetail, RecipeIngredient, RecipeStep, RecipeSummary } from "../../shared/api";
-import type { Aisle, Protein, Suits, Unit } from "../../shared/recipe-format";
+import type { Aisle, Course, Protein, Suits, Unit } from "../../shared/recipe-format";
 import { photoUrl } from "../photos";
 
 interface SummaryRow {
@@ -8,6 +8,7 @@ interface SummaryRow {
   minutes: number;
   protein: Protein;
   suits: Suits;
+  course: Course;
   kcal_adult: number | null;
   kcal_estimated: number;
   tags: string;
@@ -27,7 +28,7 @@ interface DetailRow extends SummaryRow {
 }
 
 const SUMMARY_COLUMNS = `
-  r.id, r.title, r.minutes, r.protein, r.suits, r.kcal_adult, r.kcal_estimated, r.tags,
+  r.id, r.title, r.minutes, r.protein, r.suits, r.course, r.kcal_adult, r.kcal_estimated, r.tags,
   r.cover_photo_key, r.archived,
   (SELECT COUNT(*) FROM cook_logs l WHERE l.recipe_id = r.id) AS times_cooked,
   (SELECT MAX(l.cooked_at) FROM cook_logs l WHERE l.recipe_id = r.id) AS last_cooked_at,
@@ -41,6 +42,7 @@ function toSummary(row: SummaryRow): RecipeSummary {
     minutes: row.minutes,
     protein: row.protein,
     suits: row.suits,
+    course: row.course,
     kcal_adult: row.kcal_adult,
     kcal_estimated: row.kcal_estimated === 1,
     tags: JSON.parse(row.tags) as string[],
@@ -77,7 +79,9 @@ export async function getRecipe(db: D1Database, id: string): Promise<RecipeDetai
          WHERE ri.recipe_id = ? ORDER BY ri.position`,
       )
       .bind(id),
-    db.prepare("SELECT position, text, timer_seconds FROM recipe_steps WHERE recipe_id = ? ORDER BY position").bind(id),
+    db
+      .prepare("SELECT position, text, timer_seconds, timer_label, uses FROM recipe_steps WHERE recipe_id = ? ORDER BY position")
+      .bind(id),
   ]);
 
   const row = recipeRes?.results[0] as DetailRow | undefined;
@@ -113,6 +117,9 @@ export async function getRecipe(db: D1Database, id: string): Promise<RecipeDetai
     created_at: row.created_at,
     updated_at: row.updated_at,
     ingredients,
-    steps: (stepsRes?.results ?? []) as RecipeStep[],
+    steps: ((stepsRes?.results ?? []) as (Omit<RecipeStep, "uses"> & { uses: string | null })[]).map((step) => ({
+      ...step,
+      uses: step.uses ? (JSON.parse(step.uses) as string[]) : null,
+    })),
   };
 }

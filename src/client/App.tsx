@@ -1,10 +1,11 @@
-import { BookOpen, CalendarDays, ChefHat, Compass, ShoppingBasket } from "lucide-react";
+import { BookOpen, CalendarDays, Compass, ShoppingBasket } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { RatingPrompt } from "../shared/api";
 import { api } from "./api";
 import { BottomNav, NavRefContext } from "./components/BottomNav";
 import { ComingSoon } from "./components/ComingSoon";
 import { RatingSheet } from "./components/RatingSheet";
+import { Cook } from "./cook/Cook";
 import { Today } from "./pages/Today";
 import { Tools } from "./pages/Tools";
 import { Link, matchRoute, usePathname, type Route } from "./router";
@@ -38,11 +39,7 @@ function Screen({ route }: { route: Route }) {
     case "import":
       return <Tools />;
     case "cook":
-      return (
-        <ComingSoon title="Modo cocina" Icon={ChefHat}>
-          <Link href="/">Volver a Hoy</Link>
-        </ComingSoon>
-      );
+      return <Cook date={route.date} slot={route.slot} />;
     case "not-found":
       return (
         <ComingSoon title="No encontrado" Icon={Compass}>

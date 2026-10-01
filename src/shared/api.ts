@@ -1,5 +1,5 @@
 import type { MealStatus } from "./meals";
-import type { Aisle, Protein, Slot, Suits, Unit } from "./recipe-format";
+import type { Aisle, Course, Protein, Slot, Suits, Unit } from "./recipe-format";
 
 /** Elemento de GET /api/recipes. */
 export interface RecipeSummary {
@@ -8,6 +8,8 @@ export interface RecipeSummary {
   minutes: number;
   protein: Protein;
   suits: Suits;
+  /** Solo los "main" se pueden planificar como comida o cena. */
+  course: Course;
   kcal_adult: number | null;
   kcal_estimated: boolean;
   tags: string[];
@@ -34,6 +36,9 @@ export interface RecipeStep {
   position: number;
   text: string;
   timer_seconds: number | null;
+  timer_label: string | null;
+  /** Ids de ingrediente (slugs) que usa el paso; null si no se indicó al importar. */
+  uses: string[] | null;
 }
 
 /** GET /api/recipes/:id */
@@ -60,10 +65,19 @@ export interface ApiError {
   errors?: { field: string; message: string }[];
 }
 
+export interface CookLog {
+  id: number;
+  cooked_at: string;
+  stars: number | null;
+  note: string | null;
+}
+
 export interface DayMeal {
   status: MealStatus;
   note: string | null;
   recipe: RecipeDetail | null;
+  /** Registro de cocinado de esta comida (el más reciente), si existe. */
+  cook_log: CookLog | null;
 }
 
 /** GET /api/day/:date */
@@ -77,6 +91,8 @@ export interface DayResponse {
 export interface RatingPrompt {
   date: string;
   slot: Slot;
+  /** Si la comida ya se registró como cocinada sin estrellas, se actualiza ese registro. */
+  cook_log_id: number | null;
   recipe: { id: string; title: string; photo_url: string | null };
 }
 
@@ -87,4 +103,10 @@ export interface PlanImportResponse {
   /** Recetas incluidas en el plan que ya existían: no se modifican. */
   existing_recipes: string[];
   created_ingredients: string[];
+}
+
+/** POST /api/recipes/:id/photo */
+export interface PhotoResponse {
+  cover_photo_key: string;
+  photo_url: string;
 }

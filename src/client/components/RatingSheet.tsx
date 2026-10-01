@@ -41,13 +41,21 @@ export function RatingSheet({ prompt, onDone }: { prompt: RatingPrompt; onDone: 
     setBusy(true);
     setError(null);
     try {
-      await api.post("/cook-logs", {
-        recipe_id: prompt.recipe.id,
-        plan_meal_date: prompt.date,
-        plan_meal_slot: prompt.slot,
-        stars,
-        note: note.trim() || null,
-      });
+      if (prompt.cook_log_id !== null) {
+        // Ya se registró como cocinada ("Valorar después"): se completa ese registro.
+        const patch: { stars?: number; note?: string } = {};
+        if (stars !== null) patch.stars = stars;
+        if (note.trim()) patch.note = note.trim();
+        await api.patch(`/cook-logs/${prompt.cook_log_id}`, patch);
+      } else {
+        await api.post("/cook-logs", {
+          recipe_id: prompt.recipe.id,
+          plan_meal_date: prompt.date,
+          plan_meal_slot: prompt.slot,
+          stars,
+          note: note.trim() || null,
+        });
+      }
       close();
     } catch {
       setError("No se ha podido guardar. Inténtalo de nuevo.");

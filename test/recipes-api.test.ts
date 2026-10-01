@@ -124,7 +124,7 @@ describe("POST /api/recipes/import", () => {
       last_cooked_at: "2026-09-20T13:00:00.000Z",
     });
     expect(detail.ingredients).toHaveLength(3);
-    expect(detail.steps).toEqual([{ position: 1, text: "Paso único.", timer_seconds: null }]);
+    expect(detail.steps).toEqual([{ position: 1, text: "Paso único.", timer_seconds: null, timer_label: null, uses: null }]);
   });
 
   it("?replace=true también sirve para una receta que no existía", async () => {
@@ -157,7 +157,7 @@ describe("POST /api/recipes/import", () => {
     const recipe = recipeWithId("atomica");
     const parsed = (await import("../src/shared/recipe-format")).parseRecipeImport(recipe);
     if (!parsed.ok) throw new Error("ejemplo inválido");
-    const broken = { ...parsed.recipe, steps: [{ text: "mal", timer_seconds: -1 }] };
+    const broken = { ...parsed.recipe, steps: [{ text: "mal", timer_seconds: -1, timer_label: null, uses: null }] };
     await expect(importDirect(env.DB, broken, { replace: false })).rejects.toThrow();
 
     expect(await env.DB.prepare("SELECT 1 FROM recipes WHERE id = 'atomica'").first()).toBeNull();
@@ -178,6 +178,7 @@ describe("GET /api/recipes", () => {
       minutes: 40,
       protein: "ave",
       suits: "lunch",
+      course: "main",
       kcal_adult: 800,
       kcal_estimated: true,
       tags: ["japonesa", "curry", "empanado"],

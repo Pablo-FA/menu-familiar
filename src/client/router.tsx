@@ -1,4 +1,5 @@
 import { useEffect, useState, type AnchorHTMLAttributes, type MouseEvent } from "react";
+import type { Slot } from "../shared/recipe-format";
 
 /**
  * Router mínimo con la History API: la app tiene pocas rutas y así no hace falta
@@ -35,7 +36,7 @@ export type Route =
   | { name: "recipes" }
   | { name: "shopping" }
   | { name: "import" }
-  | { name: "cook"; date: string; slot: string }
+  | { name: "cook"; date: string; slot: Slot }
   | { name: "not-found" };
 
 export function matchRoute(path: string): Route {
@@ -46,7 +47,7 @@ export function matchRoute(path: string): Route {
   if (clean === "/compra") return { name: "shopping" };
   if (clean === "/importar") return { name: "import" };
   const cook = /^\/cocinar\/(\d{4}-\d{2}-\d{2})\/(lunch|dinner)$/.exec(clean);
-  if (cook?.[1] && cook[2]) return { name: "cook", date: cook[1], slot: cook[2] };
+  if (cook?.[1] && cook[2]) return { name: "cook", date: cook[1], slot: cook[2] as Slot };
   return { name: "not-found" };
 }
 

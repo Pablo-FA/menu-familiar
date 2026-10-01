@@ -129,7 +129,7 @@ function MealView({ date, slot, meal, onToggle }: { date: string; slot: Slot; me
                 </button>
               </h2>
               <div className={styles.metaRow}>
-                <RecipePills recipe={recipe} />
+                <RecipePills recipe={recipe} cooked={meal.cook_log !== null} />
                 <button type="button" className={styles.coverPlay} onClick={cook} aria-label="Cocinar">
                   <Play size={28} fill="currentColor" strokeWidth={0} aria-hidden="true" />
                 </button>
@@ -167,7 +167,7 @@ function MealView({ date, slot, meal, onToggle }: { date: string; slot: Slot; me
   );
 }
 
-function RecipePills({ recipe }: { recipe: RecipeDetail }) {
+function RecipePills({ recipe, cooked }: { recipe: RecipeDetail; cooked: boolean }) {
   return (
     <div className={styles.pills}>
       <span className="chip-photo">{recipe.minutes} min</span>
@@ -182,6 +182,7 @@ function RecipePills({ recipe }: { recipe: RecipeDetail }) {
           ★ {recipe.last_stars}
         </span>
       )}
+      {cooked && <span className="chip-photo">Cocinado</span>}
       {recipe.times_cooked === 0 && <span className="chip-photo">Nueva</span>}
     </div>
   );
