@@ -415,12 +415,9 @@
 }
 
 .checklist {
-  flex: 1;
-  overflow-y: auto;
   margin: 0;
-  padding: 0 20px calc(var(--safe-bottom) + 16px);
+  padding: 0 4px;
   list-style: none;
-  -webkit-overflow-scrolling: touch;
 }
 
 .checkRow {

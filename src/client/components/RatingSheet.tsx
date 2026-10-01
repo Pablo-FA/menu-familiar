@@ -7,14 +7,32 @@ import { api } from "../api";
 import styles from "./RatingSheet.module.css";
 
 /**
- * Hoja flotante "¿qué tal estuvo?" sobre la comida anterior. Usa <dialog> nativo:
- * trae el foco atrapado, Escape y la capa superior. Cualquier forma de cerrarla sin
- * guardar (X, "Ahora no", tocar fuera, Escape) pospone el aviso.
+ * Hoja flotante de valoración (estrellas + nota) con <dialog> nativo: foco atrapado,
+ * Escape y capa superior. Se cierra sin guardar con la X, el botón secundario, tocando
+ * fuera o con Escape (onDismiss).
  */
-export function RatingSheet({ prompt, onDone }: { prompt: RatingPrompt; onDone: () => void }) {
+export function RatingDialog({
+  eyebrow,
+  title,
+  photoUrl,
+  initialStars = null,
+  initialNote = "",
+  dismissLabel = "Ahora no",
+  onSave,
+  onDismiss,
+}: {
+  eyebrow: string;
+  title: string;
+  photoUrl: string | null;
+  initialStars?: number | null;
+  initialNote?: string;
+  dismissLabel?: string;
+  onSave: (stars: number | null, note: string | null) => Promise<void>;
+  onDismiss: () => void;
+}) {
   const dialogRef = useRef<HTMLDialogElement>(null);
-  const [stars, setStars] = useState<number | null>(null);
-  const [note, setNote] = useState("");
+  const [stars, setStars] = useState<number | null>(initialStars);
+  const [note, setNote] = useState(initialNote);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const closedRef = useRef(false);
@@ -25,45 +43,27 @@ export function RatingSheet({ prompt, onDone }: { prompt: RatingPrompt; onDone: 
   }, []);
 
   function close() {
-    if (closedRef.current) return;
+    if (closedRef.current) return false;
     closedRef.current = true;
     dialogRef.current?.close();
-    onDone();
+    return true;
   }
 
   function skip() {
-    // Si falla, no pasa nada grave: volverá a preguntar en la siguiente apertura.
-    void api.post("/rating-prompt/skip", { date: prompt.date, slot: prompt.slot }).catch(() => undefined);
-    close();
+    if (close()) onDismiss();
   }
 
   async function save() {
     setBusy(true);
     setError(null);
     try {
-      if (prompt.cook_log_id !== null) {
-        // Ya se registró como cocinada ("Valorar después"): se completa ese registro.
-        const patch: { stars?: number; note?: string } = {};
-        if (stars !== null) patch.stars = stars;
-        if (note.trim()) patch.note = note.trim();
-        await api.patch(`/cook-logs/${prompt.cook_log_id}`, patch);
-      } else {
-        await api.post("/cook-logs", {
-          recipe_id: prompt.recipe.id,
-          plan_meal_date: prompt.date,
-          plan_meal_slot: prompt.slot,
-          stars,
-          note: note.trim() || null,
-        });
-      }
+      await onSave(stars, note.trim() || null);
       close();
     } catch {
       setError("No se ha podido guardar. Inténtalo de nuevo.");
       setBusy(false);
     }
   }
-
-  const label = pastMealLabel(prompt.date, prompt.slot, madridNow().date, weekdayName);
 
   return (
     <dialog
@@ -80,15 +80,15 @@ export function RatingSheet({ prompt, onDone }: { prompt: RatingPrompt; onDone: 
     >
       <div className={styles.sheet}>
         <div className={styles.header}>
-          {prompt.recipe.photo_url ? (
-            <img className={styles.thumb} src={prompt.recipe.photo_url} alt="" />
+          {photoUrl ? (
+            <img className={styles.thumb} src={photoUrl} alt="" />
           ) : (
             <div className={styles.thumb} aria-hidden="true" />
           )}
           <div className={styles.heading}>
-            <p className={styles.eyebrow}>{label}</p>
+            <p className={styles.eyebrow}>{eyebrow}</p>
             <h2 id="rating-title" className={styles.title}>
-              {prompt.recipe.title}
+              {title}
             </h2>
           </div>
           <button type="button" className={styles.close} onClick={skip} aria-label="Cerrar">
@@ -134,7 +134,7 @@ export function RatingSheet({ prompt, onDone }: { prompt: RatingPrompt; onDone: 
 
         <div className={styles.actions}>
           <button type="button" className="pill-button pill-button--secondary" onClick={skip} disabled={busy}>
-            Ahora no
+            {dismissLabel}
           </button>
           <button
             type="button"
@@ -147,5 +147,42 @@ export function RatingSheet({ prompt, onDone }: { prompt: RatingPrompt; onDone: 
         </div>
       </div>
     </dialog>
+  );
+}
+
+/**
+ * Aviso "¿qué tal estuvo?" de la comida anterior. Cualquier forma de cerrarlo sin guardar
+ * (X, "Ahora no", tocar fuera, Escape) pospone el aviso.
+ */
+export function RatingSheet({ prompt, onDone }: { prompt: RatingPrompt; onDone: () => void }) {
+  return (
+    <RatingDialog
+      eyebrow={pastMealLabel(prompt.date, prompt.slot, madridNow().date, weekdayName)}
+      title={prompt.recipe.title}
+      photoUrl={prompt.recipe.photo_url}
+      onDismiss={() => {
+        // Si falla, no pasa nada grave: volverá a preguntar en la siguiente apertura.
+        void api.post("/rating-prompt/skip", { date: prompt.date, slot: prompt.slot }).catch(() => undefined);
+        onDone();
+      }}
+      onSave={async (stars, note) => {
+        if (prompt.cook_log_id !== null) {
+          // Ya se registró como cocinada ("Valorar después"): se completa ese registro.
+          const patch: { stars?: number; note?: string } = {};
+          if (stars !== null) patch.stars = stars;
+          if (note) patch.note = note;
+          await api.patch(`/cook-logs/${prompt.cook_log_id}`, patch);
+        } else {
+          await api.post("/cook-logs", {
+            recipe_id: prompt.recipe.id,
+            plan_meal_date: prompt.date,
+            plan_meal_slot: prompt.slot,
+            stars,
+            note,
+          });
+        }
+        onDone();
+      }}
+    />
   );
 }

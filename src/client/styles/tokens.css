@@ -36,6 +36,16 @@
   --seg: rgba(0, 0, 0, 0.1);
   --accent: #c98a00;
   --halo-neutral: rgba(255, 255, 255, 0.55);
+  /* Planificador */
+  --sel: rgba(0, 0, 0, 0.06);
+  --dim: rgba(30, 35, 45, 0.25);
+  --amber: #b25000;
+  --danger: #d70015;
+  --dash: rgba(29, 29, 31, 0.3);
+  --dot-away: rgba(29, 29, 31, 0.22);
+  --sheet: linear-gradient(135deg, rgba(244, 245, 248, 0.92), rgba(236, 238, 243, 0.84));
+  --group: rgba(255, 255, 255, 0.88);
+  --star: var(--accent);
 }
 
 :root[data-theme="night"] {
@@ -67,6 +77,15 @@
   --seg: rgba(255, 255, 255, 0.16);
   --accent: #ffd60a;
   --halo-neutral: rgba(120, 140, 175, 0.28);
+  --sel: rgba(255, 255, 255, 0.1);
+  --dim: rgba(0, 0, 0, 0.5);
+  --amber: #ffd60a;
+  --danger: #ff453a;
+  --dash: rgba(245, 245, 247, 0.32);
+  --dot-away: rgba(245, 245, 247, 0.26);
+  --sheet: rgba(36, 38, 46, 0.84);
+  --group: rgba(255, 255, 255, 0.07);
+  --star: var(--accent);
 }
 
 :root {

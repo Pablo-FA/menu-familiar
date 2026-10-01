@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import type { CookTimer } from "../../shared/timers";
 import styles from "./Cook.module.css";
-import { Dialog } from "./Dialog";
+import { Dialog } from "../components/Dialog";
 
 /** Confirmación para cancelar un temporizador. El foco empieza en "Seguir" (lo no destructivo). */
 export function ConfirmCancel({ timer, onCancelTimer, onKeep }: { timer: CookTimer; onCancelTimer: () => void; onKeep: () => void }) {
