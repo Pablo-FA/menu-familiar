@@ -1,8 +1,9 @@
 import { Hono } from "hono";
-import type { ApiError, DayMeal, DayResponse, PlanImportResponse, RatingPrompt } from "../shared/api";
+import type { ApiError, CookLog, DayMeal, DayResponse, PlanImportResponse, RatingPrompt } from "../shared/api";
 import { addDays, isIsoDate, madridNow } from "../shared/dates";
 import { nominalCookedAt } from "../shared/meals";
 import {
+  cookLogPatchSchema,
   cookLogSchema,
   planImportSchema,
   planMealUpdateSchema,
@@ -47,6 +48,20 @@ function upsertMeal(db: D1Database, date: string, slot: Slot, status: string, re
     .bind(date, slot, status, recipeId, note);
 }
 
+/** Registro de cocinado más reciente de una comida planificada. */
+function latestCookLog(db: D1Database, date: string, slot: Slot): Promise<CookLog | null> {
+  return db
+    .prepare(
+      `SELECT id, cooked_at, stars, note FROM cook_logs
+       WHERE plan_meal_date = ? AND plan_meal_slot = ? ORDER BY cooked_at DESC, id DESC LIMIT 1`,
+    )
+    .bind(date, slot)
+    .first<CookLog>();
+}
+
+const NOT_MAIN = (id: string, course: string) =>
+  `"${id}" no es un plato principal (course "${course}"): no se puede planificar como comida o cena`;
+
 // ---------- GET /api/day/:date ----------
 
 plan.get("/day/:date", async (c) => {
@@ -59,9 +74,12 @@ plan.get("/day/:date", async (c) => {
 
   async function mealFor(slot: Slot): Promise<DayMeal> {
     const row = results.find((r) => r.slot === slot);
-    if (!row) return { status: "empty", note: null, recipe: null };
-    const recipe = row.recipe_id ? await getRecipe(c.env.DB, row.recipe_id) : null;
-    return { status: row.status, note: row.note, recipe };
+    if (!row) return { status: "empty", note: null, recipe: null, cook_log: null };
+    const [recipe, cookLog] = await Promise.all([
+      row.recipe_id ? getRecipe(c.env.DB, row.recipe_id) : null,
+      latestCookLog(c.env.DB, date, slot),
+    ]);
+    return { status: row.status, note: row.note, recipe, cook_log: cookLog };
   }
 
   const [lunch, dinner] = await Promise.all([mealFor("lunch"), mealFor("dinner")]);
@@ -82,8 +100,20 @@ plan.put("/plan/:date/:slot", async (c) => {
     return c.json<ApiError>({ error: "La comida no es válida", errors: toValidationErrors(parsed.error) }, 400);
   }
   const meal = parsed.data;
-  if (meal.recipe_id && !(await recipeExists(c.env.DB, meal.recipe_id))) {
-    return c.json<ApiError>({ error: `No existe la receta "${meal.recipe_id}"`, errors: [{ field: "recipe_id", message: "Receta no encontrada" }] }, 400);
+  if (meal.recipe_id) {
+    const recipe = await c.env.DB.prepare("SELECT course FROM recipes WHERE id = ?")
+      .bind(meal.recipe_id)
+      .first<{ course: string }>();
+    if (!recipe) {
+      return c.json<ApiError>(
+        { error: `No existe la receta "${meal.recipe_id}"`, errors: [{ field: "recipe_id", message: "Receta no encontrada" }] },
+        400,
+      );
+    }
+    if (recipe.course !== "main") {
+      const message = NOT_MAIN(meal.recipe_id, recipe.course);
+      return c.json<ApiError>({ error: message, errors: [{ field: "recipe_id", message }] }, 400);
+    }
   }
 
   await upsertMeal(c.env.DB, date, slot, meal.status, meal.recipe_id, meal.note).run();
@@ -105,18 +135,24 @@ plan.post("/plan/import", async (c) => {
   // Qué recetas existen ya: las del plan que ya están en la base de datos no se tocan.
   const referenced = [...new Set([...recipes.map((r) => r.id), ...meals.flatMap((m) => (m.recipe_id ? [m.recipe_id] : []))])];
   const { results } = await db
-    .prepare("SELECT id FROM recipes WHERE id IN (SELECT value FROM json_each(?))")
+    .prepare("SELECT id, course FROM recipes WHERE id IN (SELECT value FROM json_each(?))")
     .bind(JSON.stringify(referenced))
-    .all<{ id: string }>();
+    .all<{ id: string; course: string }>();
+  // Tipo de plato de cada receta: el de la base de datos si ya existe (no se modifica), si no el del plan.
+  const courseOf = new Map<string, string>(recipes.map((r) => [r.id, r.course]));
+  results.forEach((r) => courseOf.set(r.id, r.course));
   const existing = new Set(results.map((r) => r.id));
-  const included = new Set(recipes.map((r) => r.id));
 
-  const missing = meals.flatMap((meal, i) =>
-    meal.recipe_id && !existing.has(meal.recipe_id) && !included.has(meal.recipe_id)
-      ? [{ field: `meals[${i}].recipe_id`, message: `No existe la receta "${meal.recipe_id}" ni viene en "recipes"` }]
-      : [],
-  );
-  if (missing.length > 0) return c.json<ApiError>({ error: "El menú no es válido", errors: missing }, 400);
+  const problems = meals.flatMap((meal, i) => {
+    if (!meal.recipe_id) return [];
+    const course = courseOf.get(meal.recipe_id);
+    if (course === undefined) {
+      return [{ field: `meals[${i}].recipe_id`, message: `No existe la receta "${meal.recipe_id}" ni viene en "recipes"` }];
+    }
+    if (course !== "main") return [{ field: `meals[${i}].recipe_id`, message: NOT_MAIN(meal.recipe_id, course) }];
+    return [];
+  });
+  if (problems.length > 0) return c.json<ApiError>({ error: "El menú no es válido", errors: problems }, 400);
 
   const statements: D1PreparedStatement[] = [];
   const createdIngredients = new Set<string>();
@@ -149,9 +185,11 @@ plan.get("/rating-prompt", async (c) => {
   const [mealsRes, lastRes] = await db.batch([
     db
       .prepare(
-        `SELECT pm.date, pm.slot, pm.recipe_id, pm.rating_skipped_at,
-                EXISTS (SELECT 1 FROM cook_logs l WHERE l.plan_meal_date = pm.date AND l.plan_meal_slot = pm.slot) AS has_cook_log
+        `SELECT pm.date, pm.slot, pm.recipe_id, pm.rating_skipped_at, l.id AS cook_log_id, l.stars
          FROM plan_meals pm
+         LEFT JOIN cook_logs l ON l.id = (
+           SELECT id FROM cook_logs WHERE plan_meal_date = pm.date AND plan_meal_slot = pm.slot
+           ORDER BY cooked_at DESC, id DESC LIMIT 1)
          WHERE pm.status = 'planned' AND pm.recipe_id IS NOT NULL AND pm.date BETWEEN ? AND ?`,
       )
       .bind(addDays(today, -(RATING_WINDOW_DAYS + 1)), today),
@@ -162,8 +200,8 @@ plan.get("/rating-prompt", async (c) => {
          SELECT MAX(created_at) FROM cook_logs WHERE plan_meal_date IS NOT NULL)`,
     ),
   ]);
-  const meals = ((mealsRes?.results ?? []) as (Omit<PastMeal, "has_cook_log"> & { has_cook_log: number })[]).map(
-    (m) => ({ ...m, has_cook_log: m.has_cook_log === 1 }),
+  const meals = ((mealsRes?.results ?? []) as (Omit<PastMeal, "rated"> & { stars: number | null })[]).map(
+    ({ stars, ...m }) => ({ ...m, rated: stars !== null }),
   );
   const last = (lastRes?.results[0] as { last: string | null } | undefined)?.last ?? null;
 
@@ -179,6 +217,7 @@ plan.get("/rating-prompt", async (c) => {
   return c.json<RatingPrompt>({
     date: pick.date,
     slot: pick.slot,
+    cook_log_id: pick.cook_log_id,
     recipe: { id: recipe.id, title: recipe.title, photo_url: recipe.cover_photo_key ? photoUrl(recipe.cover_photo_key) : null },
   });
 });
@@ -222,6 +261,7 @@ plan.post("/cook-logs", async (c) => {
     if (!meal) return c.json<ApiError>({ error: "Esa comida no está planificada" }, 404);
     cookedAt = nominalCookedAt(log.plan_meal_date, log.plan_meal_slot);
   }
+  if (log.cooked_at) cookedAt = log.cooked_at;
 
   const row = await db
     .prepare(
@@ -231,4 +271,33 @@ plan.post("/cook-logs", async (c) => {
     .bind(log.recipe_id, log.plan_meal_date ?? null, log.plan_meal_slot ?? null, cookedAt, log.stars ?? null, log.note)
     .first<{ id: number }>();
   return c.json({ id: row?.id, cooked_at: cookedAt }, 201);
+});
+
+plan.patch("/cook-logs/:id", async (c) => {
+  const id = Number(c.req.param("id"));
+  if (!Number.isInteger(id) || id <= 0) return c.json<ApiError>({ error: "Id no válido" }, 400);
+  const json = await readJson(c.req.raw);
+  if (!json.ok) return c.json(INVALID_JSON, 400);
+  const parsed = cookLogPatchSchema.safeParse(json.body);
+  if (!parsed.success) {
+    return c.json<ApiError>({ error: "La valoración no es válida", errors: toValidationErrors(parsed.error) }, 400);
+  }
+  const patch = parsed.data;
+  const sets: string[] = [];
+  const values: (string | number | null)[] = [];
+  if (patch.stars !== undefined) {
+    sets.push("stars = ?");
+    values.push(patch.stars);
+  }
+  if (patch.note !== undefined) {
+    sets.push("note = ?");
+    values.push(patch.note);
+  }
+  if (sets.length === 0) return c.json<ApiError>({ error: "No hay nada que cambiar" }, 400);
+
+  const row = await c.env.DB.prepare(`UPDATE cook_logs SET ${sets.join(", ")} WHERE id = ? RETURNING id, cooked_at, stars, note`)
+    .bind(...values, id)
+    .first<CookLog>();
+  if (!row) return c.json<ApiError>({ error: "Registro no encontrado" }, 404);
+  return c.json<CookLog>(row);
 });

@@ -86,6 +86,8 @@ export const cookLogSchema = z
     plan_meal_slot: z.enum(SLOTS).nullish(),
     stars: z.number().int().min(1).max(5).nullish(),
     note,
+    /** Cuándo se cocinó (ISO). Por defecto: la hora nominal de la comida planificada, o ahora. */
+    cooked_at: z.iso.datetime({ offset: true }).nullish(),
   })
   .superRefine((log, ctx) => {
     if (Boolean(log.plan_meal_date) !== Boolean(log.plan_meal_slot)) {
@@ -93,6 +95,18 @@ export const cookLogSchema = z
     }
   });
 export type CookLogInput = z.output<typeof cookLogSchema>;
+
+/** PATCH /api/cook-logs/:id. Solo se cambian los campos presentes; null borra el valor. */
+export const cookLogPatchSchema = z.strictObject({
+  stars: z.number().int().min(1).max(5).nullable().optional(),
+  note: z
+    .string()
+    .trim()
+    .max(500)
+    .nullable()
+    .optional()
+    .transform((v) => (v === undefined ? undefined : v ? v : null)),
+});
 
 export const ratingSkipSchema = z.strictObject({ date: isoDate, slot: z.enum(SLOTS) });
 

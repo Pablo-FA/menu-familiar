@@ -92,10 +92,11 @@ export async function prepareRecipeWrites(
     recipe.adaptation_notes,
     recipe.freezer_note,
     JSON.stringify(recipe.tags),
+    recipe.course,
   ];
   const insertRecipe = `INSERT INTO recipes
-      (id, title, minutes, protein, suits, kcal_adult, kcal_estimated, source_url, adaptation_notes, freezer_note, tags)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+      (id, title, minutes, protein, suits, kcal_adult, kcal_estimated, source_url, adaptation_notes, freezer_note, tags, course)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 
   if (options.replace) {
     // UPSERT y no INSERT OR REPLACE: este último borra la fila y arrastraría los cook_logs.
@@ -107,7 +108,7 @@ export async function prepareRecipeWrites(
             title = excluded.title, minutes = excluded.minutes, protein = excluded.protein,
             suits = excluded.suits, kcal_adult = excluded.kcal_adult, kcal_estimated = excluded.kcal_estimated,
             source_url = excluded.source_url, adaptation_notes = excluded.adaptation_notes,
-            freezer_note = excluded.freezer_note, tags = excluded.tags, updated_at = ${NOW}`,
+            freezer_note = excluded.freezer_note, tags = excluded.tags, course = excluded.course, updated_at = ${NOW}`,
         )
         .bind(...recipeValues),
       db.prepare("DELETE FROM recipe_ingredients WHERE recipe_id = ?").bind(recipe.id),
@@ -132,8 +133,18 @@ export async function prepareRecipeWrites(
   recipe.steps.forEach((step, index) => {
     statements.push(
       db
-        .prepare("INSERT INTO recipe_steps (recipe_id, position, text, timer_seconds) VALUES (?, ?, ?, ?)")
-        .bind(recipe.id, index + 1, step.text, step.timer_seconds),
+        .prepare(
+          "INSERT INTO recipe_steps (recipe_id, position, text, timer_seconds, timer_label, uses) VALUES (?, ?, ?, ?, ?, ?)",
+        )
+        .bind(
+          recipe.id,
+          index + 1,
+          step.text,
+          step.timer_seconds,
+          step.timer_label,
+          // Los nombres se guardan como slugs del catálogo, sin repetir.
+          step.uses ? JSON.stringify([...new Set(step.uses.map(slugify))]) : null,
+        ),
     );
   });
 

@@ -11,7 +11,10 @@ export interface PastMeal {
   recipe_id: string;
   /** Última vez que se pospuso el aviso de esta comida (ISO UTC), o null. */
   rating_skipped_at: string | null;
-  has_cook_log: boolean;
+  /** Registro de cocinado de esa comida, si existe (el más reciente). */
+  cook_log_id: number | null;
+  /** true si ese registro ya tiene estrellas. */
+  rated: boolean;
 }
 
 /**
@@ -24,7 +27,8 @@ export interface PastMeal {
  * - Se mira solo la comida planificada MÁS RECIENTE que ya haya pasado. Antes de las
  *   17:00 la franja actual es la comida de hoy, así que lo último pasado es la cena de
  *   ayer; desde las 17:00 lo es la comida de hoy. No se retrocede a comidas anteriores.
- * - Si ya tiene valoración (cook_log), no se pregunta.
+ * - Si ya tiene valoración (un cook_log con estrellas), no se pregunta. Un cook_log sin
+ *   estrellas ("Valorar después" al terminar de cocinar) cuenta como pendiente.
  * - Si tiene más de RATING_WINDOW_DAYS días, no se pregunta ("si en 2 días no se ha
  *   valorado, no vuelve a preguntar").
  * - Como mucho una vez al día: si hoy ya se pospuso o guardó un aviso, no se pregunta.
@@ -40,7 +44,7 @@ export function pickRatingPrompt(meals: PastMeal[], lastPromptActionAt: string |
     .sort((a, b) => (slotKey(a.date, a.slot) < slotKey(b.date, b.slot) ? 1 : -1));
   const latest = past[0];
 
-  if (!latest || latest.has_cook_log) return null;
+  if (!latest || latest.rated) return null;
   if (latest.date < addDays(today, -RATING_WINDOW_DAYS)) return null;
   return latest;
 }

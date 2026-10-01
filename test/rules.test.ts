@@ -56,7 +56,8 @@ describe("aviso de valoración", () => {
     slot,
     recipe_id: `${date}-${slot}`,
     rating_skipped_at: null,
-    has_cook_log: false,
+    cook_log_id: null,
+    rated: false,
     ...extra,
   });
 
@@ -66,7 +67,7 @@ describe("aviso de valoración", () => {
   });
 
   it("no pregunta por la comida de hoy hasta las 17:00, y desde entonces sí", () => {
-    const meals = [meal("2026-10-03", "dinner", { has_cook_log: true }), meal("2026-10-04", "lunch")];
+    const meals = [meal("2026-10-03", "dinner", { cook_log_id: 1, rated: true }), meal("2026-10-04", "lunch")];
     expect(pickRatingPrompt(meals, null, at("16:59"))).toBeNull();
     expect(pickRatingPrompt(meals, null, at("17:00"))?.recipe_id).toBe("2026-10-04-lunch");
   });
@@ -76,8 +77,13 @@ describe("aviso de valoración", () => {
   });
 
   it("solo mira la más reciente: si ya está valorada no retrocede a otras", () => {
-    const meals = [meal("2026-10-03", "lunch"), meal("2026-10-03", "dinner", { has_cook_log: true })];
+    const meals = [meal("2026-10-03", "lunch"), meal("2026-10-03", "dinner", { cook_log_id: 7, rated: true })];
     expect(pickRatingPrompt(meals, null, at("10:00"))).toBeNull();
+  });
+
+  it("un cook_log sin estrellas (\"Valorar después\") sigue pendiente y se devuelve su id", () => {
+    const pick = pickRatingPrompt([meal("2026-10-03", "dinner", { cook_log_id: 9, rated: false })], null, at("10:00"));
+    expect(pick).toMatchObject({ recipe_id: "2026-10-03-dinner", cook_log_id: 9 });
   });
 
   it("si faltan comidas planificadas, la más reciente puede ser de días antes", () => {

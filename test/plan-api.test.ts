@@ -36,7 +36,7 @@ describe("POST /api/plan/import", () => {
     expect(day.lunch.recipe?.ingredients).toHaveLength(12);
     expect(day.lunch.recipe?.steps).toHaveLength(8);
     expect(day.lunch.recipe?.photo_url).toBeNull();
-    expect(day.dinner).toEqual({ status: "away", note: "Cena en casa de los abuelos", recipe: null });
+    expect(day.dinner).toEqual({ status: "away", note: "Cena en casa de los abuelos", recipe: null, cook_log: null });
   });
 
   it("no modifica recetas que ya existen y permite planificar recetas ya guardadas", async () => {
@@ -129,8 +129,8 @@ describe("GET /api/day y PUT /api/plan", () => {
     const day = await (await send("GET", "/day/2030-01-01")).json<DayResponse>();
     expect(day).toEqual({
       date: "2030-01-01",
-      lunch: { status: "empty", note: null, recipe: null },
-      dinner: { status: "empty", note: null, recipe: null },
+      lunch: { status: "empty", note: null, recipe: null, cook_log: null },
+      dinner: { status: "empty", note: null, recipe: null, cook_log: null },
     });
   });
 
@@ -147,7 +147,7 @@ describe("GET /api/day y PUT /api/plan", () => {
 
     expect((await send("PUT", "/plan/2026-10-11/lunch", { status: "away", note: "Cumple" })).status).toBe(200);
     day = await (await send("GET", "/day/2026-10-11")).json<DayResponse>();
-    expect(day.lunch).toEqual({ status: "away", note: "Cumple", recipe: null });
+    expect(day.lunch).toEqual({ status: "away", note: "Cumple", recipe: null, cook_log: null });
   });
 
   it("PUT rechaza recetas inexistentes y combinaciones sin sentido", async () => {
@@ -171,6 +171,7 @@ describe("aviso de valoración y cook-logs (con la fecha real de hoy)", () => {
     expect(prompt).toEqual({
       date: yesterday,
       slot: "dinner",
+      cook_log_id: null,
       recipe: { id: "aviso-a", title: "Cena de ayer", photo_url: null },
     });
 
