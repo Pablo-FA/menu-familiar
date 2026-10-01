@@ -4,6 +4,7 @@ import { isLocalBypass, verifyAccess } from "./access";
 import type { AppEnv } from "./env";
 import { photos } from "./photos";
 import { plan } from "./plan";
+import { planner } from "./planner";
 import { recipes } from "./recipes/routes";
 
 const app = new Hono<AppEnv>().basePath("/api");
@@ -91,6 +92,7 @@ app.get("/health", async (c) => {
 app.route("/recipes", recipes);
 app.route("/photos", photos);
 app.route("/", plan);
+app.route("/", planner);
 
 app.notFound((c) => c.json({ error: "No encontrado" }, 404));
 

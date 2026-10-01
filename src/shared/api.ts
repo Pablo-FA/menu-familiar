@@ -21,6 +21,10 @@ export interface RecipeSummary {
   last_cooked_at: string | null;
   /** Estrellas del último registro de cocinado que tenga valoración. */
   last_stars: number | null;
+  /** Fecha (AAAA-MM-DD, Madrid) del último cocinado, o null. */
+  last_cooked: string | null;
+  /** Media de las valoraciones con estrellas, a 1 decimal, o null. */
+  avg_stars: number | null;
 }
 
 export interface RecipeIngredient {
@@ -109,4 +113,44 @@ export interface PlanImportResponse {
 export interface PhotoResponse {
   cover_photo_key: string;
   photo_url: string;
+}
+
+/** Una franja en GET /api/plan. */
+export interface PlanSlotInfo {
+  status: MealStatus;
+  note: string | null;
+  recipe: { id: string; title: string; minutes: number; protein: Protein; suits: Suits; photo_url: string | null } | null;
+  cook_log: { id: number; stars: number | null; note: string | null } | null;
+}
+
+/** GET /api/plan?from&to */
+export interface PlanRangeResponse {
+  from: string;
+  to: string;
+  days: { date: string; lunch: PlanSlotInfo; dinner: PlanSlotInfo }[];
+}
+
+/** Una comida para POST /api/plan/batch (y su deshacer). */
+export interface PlanMealWrite {
+  date: string;
+  slot: Slot;
+  status: MealStatus;
+  recipe_id: string | null;
+  note: string | null;
+}
+
+export interface PreviewMeal {
+  date: string;
+  slot: Slot;
+  change: "add" | "replace" | "same";
+  proposed: { status: MealStatus; recipe_id: string | null; title: string | null; is_new: boolean };
+  current: { status: MealStatus; recipe_id: string | null; title: string | null; note: string | null };
+}
+
+/** POST /api/plan/preview */
+export interface PlanPreviewResponse {
+  meals: PreviewMeal[];
+  new_recipes: { id: string; title: string }[];
+  ignored_existing_recipes: { id: string; title: string }[];
+  errors: { field: string; message: string }[];
 }

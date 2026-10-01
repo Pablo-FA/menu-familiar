@@ -188,6 +188,8 @@ describe("GET /api/recipes", () => {
       times_cooked: 0,
       last_cooked_at: null,
       last_stars: null,
+      last_cooked: null,
+      avg_stars: null,
     });
     expect(list.some((r) => r.id === "archivada")).toBe(false);
 
