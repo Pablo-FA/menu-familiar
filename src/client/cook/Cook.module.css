@@ -319,6 +319,13 @@
   }
 }
 
+.toastHint {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--fg2);
+}
+
 .toast svg {
   color: var(--accent);
   flex: none;
