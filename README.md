@@ -2,7 +2,7 @@
 
 App web personal para planificar el menú familiar. La usa una sola persona desde iPhone, iPad, Windows y Mac.
 
-**Estado actual: paso 2 (sistema visual y pantalla Hoy).** Existe el sistema visual "glass", la navegación con cuatro secciones y la pantalla **Hoy** con datos reales (portada, ingredientes y pasos de la comida o la cena del día), además del aviso para valorar la comida anterior. Los menús se cargan pegando un JSON `plan@1` en `/importar`. Planificador, Recetas, Compra y el modo cocina están marcados como "Próximamente".
+**Estado actual: paso 3 (modo cocina).** Funciona el ciclo diario completo: **Hoy** muestra la comida o la cena del día, el **modo cocina** la guía paso a paso (cantidades por paso, temporizadores, lista de ingredientes, pantalla siempre encendida) y al terminar se hace la **foto de portada** y se valora. Los menús se cargan pegando un JSON `plan@1` en `/importar`. Planificador, Recetas y Compra están marcados como "Próximamente".
 
 ## Stack
 
@@ -81,7 +81,9 @@ Toda bajo `/api` y protegida por Access.
 | `GET /api/day/:fecha` | `{ date, lunch, dinner }`, cada franja con estado, nota y receta completa (con `photo_url`, `last_stars`, `times_cooked`). |
 | `GET /api/rating-prompt` | Comida pendiente de valorar, o `null` (regla en [`src/shared/rating-prompt.ts`](src/shared/rating-prompt.ts)). |
 | `POST /api/rating-prompt/skip` | Pospone el aviso: `{ date, slot }`. |
-| `POST /api/cook-logs` | Registra que se ha cocinado: `{ recipe_id, plan_meal_date?, plan_meal_slot?, stars?, note? }`. |
+| `POST /api/cook-logs` | Registra que se ha cocinado: `{ recipe_id, plan_meal_date?, plan_meal_slot?, cooked_at?, stars?, note? }`. |
+| `PATCH /api/cook-logs/:id` | Completa una valoración: `{ stars?, note? }`. |
+| `POST /api/recipes/:id/photo` | Nueva portada (cuerpo: JPEG, máx. 10 MB). Se guarda en R2 como `recipes/{id}/{timestamp}.jpg` y se borra la anterior. |
 | `GET /api/photos/<clave>` | Sirve una foto de R2 con caché inmutable; 404 si no existe. |
 
 Formatos de importación: [docs/formato-importacion.md](docs/formato-importacion.md).
@@ -90,13 +92,16 @@ Formatos de importación: [docs/formato-importacion.md](docs/formato-importacion
 
 - **Hoy** (`/`): muestra una comida a pantalla completa. Antes de las 17:00 (hora de Madrid) la comida y después la cena; si esa franja no tiene receta y la otra sí, la otra. El botón sol/luna alterna entre comida y cena.
 - **Tema**: con el sistema en modo oscuro, siempre oscuro. Si no, en Hoy la comida usa el tema claro y la cena el oscuro; en el resto de pantallas, claro hasta las 17:00 y oscuro después. Regla en [`src/shared/theme.ts`](src/shared/theme.ts).
-- **Aviso de valoración**: al abrir la app (nunca en el modo cocina), si la comida planificada más reciente ya pasada no está valorada, tiene menos de 2 días y hoy no se ha respondido ya a ningún aviso. Cerrarlo sin guardar lo pospone al día siguiente.
-- **Planificador, Recetas, Compra y Modo cocina** (`/cocinar/:fecha/:franja`): "Próximamente".
+- **Aviso de valoración**: al abrir la app (nunca en el modo cocina), si la comida planificada más reciente ya pasada no tiene estrellas (no se registró o se dejó para "valorar después"), tiene menos de 2 días y hoy no se ha respondido ya a ningún aviso. Cerrarlo sin guardar lo pospone al día siguiente.
+- **Modo cocina** (`/cocinar/:fecha/:franja`): un paso a pantalla completa, con las cantidades que usa (de `uses` o detectadas en el texto), temporizadores simultáneos (guardados como hora de fin, sobreviven a recargas), hoja de ingredientes para marcar y gestos laterales. El progreso se guarda en `localStorage` (`cocina:{fecha}:{franja}`) durante 12 h. Pide Wake Lock para que no se apague la pantalla.
+- **Al terminar**: foto de portada (cámara o galería, reducida a 1600 px y JPEG 0,82 en el móvil), estrellas opcionales y nota. "Valorar después" registra que se ha cocinado sin estrellas, y el aviso del día siguiente lo pregunta.
+- **Tipos de plato** (`course`): solo los `main` se pueden planificar como comida o cena.
+- **Planificador, Recetas y Compra**: "Próximamente".
 - **Importar** (`/importar`): pegar un JSON `recipe@1` o `plan@1` (se detecta solo) y estado técnico.
 
 ## Instalar en el iPhone
 
-Abre la app en Safari, inicia sesión en Access y usa **Compartir > Añadir a pantalla de inicio**. Se abre a pantalla completa (`display: standalone`), con el contenido bajo la Dynamic Island respetando las áreas seguras. Los iconos son provisionales.
+Abre la app en Safari, inicia sesión en Access y usa **Compartir > Añadir a pantalla de inicio**. Para que el modo cocina mantenga la pantalla encendida hace falta iOS 18.4 o posterior (antes, Wake Lock no funcionaba en apps instaladas). Los temporizadores suenan con el móvil en silencio (se pide la sesión de audio "playback" al sonar), pero solo si la app está abierta: iOS congela las apps web en segundo plano y no pueden avisar hasta que vuelves. Se abre a pantalla completa (`display: standalone`), con el contenido bajo la Dynamic Island respetando las áreas seguras. Los iconos son provisionales.
 
 ## Importar recetas
 

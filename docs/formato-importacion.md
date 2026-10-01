@@ -56,6 +56,7 @@ Ejemplo completo: [`ejemplos/katsukare.json`](ejemplos/katsukare.json).
 | `adaptation_notes` | texto o `null` | no | Qué se ha cambiado respecto a la fuente y por qué; qué es estimado; variantes. |
 | `freezer_note` | texto o `null` | no | Si se congela bien y cómo. |
 | `tags` | lista de textos | no (`[]`) | Máximo 20. |
+| `course` | lista | no (`"main"`) | Tipo de plato: `main` (plato principal) · `side` (pan, guarnición) · `breakfast` · `drink`. Solo los `main` se pueden planificar como comida o cena. |
 | `ingredients` | lista | sí (≥ 1) | En el orden en que se muestran. |
 | `steps` | lista | sí (≥ 1) | En orden. |
 
@@ -81,6 +82,8 @@ No se admiten campos que no estén en esta tabla: una errata (`"minutos"`) da er
 | --- | --- | --- | --- |
 | `text` | texto | sí | |
 | `timer_seconds` | entero > 0 o `null` | no (`null`) | Para ofrecer un temporizador en el modo cocina. |
+| `timer_label` | texto o `null` | no (`null`) | Nombre corto del temporizador: `"Patatas"`, `"Horno"` (máx. 30). Si falta, se llama "Paso N". |
+| `uses` | lista de textos o `null` | no (`null`) | Ingredientes que usa el paso, con el mismo `name` que en `ingredients` (tildes y mayúsculas no importan). Deben ser de la receta. Si falta, el modo cocina los deduce buscando los nombres en el texto del paso. |
 
 ### Qué hace la app al importar
 
@@ -93,6 +96,10 @@ No se admiten campos que no estén en esta tabla: una errata (`"minutos"`) da er
 - Respuesta: **201** si es nueva, **200** si se ha reemplazado.
 
 ### Instrucciones para Claude al generar el JSON
+
+- Marca con `"course": "side"` lo que no es un plato (panes, guarniciones), `"breakfast"` o `"drink"` según corresponda.
+- En los pasos con tiempo de espera, pon `timer_seconds` y un `timer_label` corto ("Arroz", "Horno").
+- Pon `uses` en los pasos donde se añaden ingredientes con cantidad, sobre todo si el texto no los nombra igual que en la lista ("las verduras").
 
 - Cantidades para 4 raciones (2 adultos y 2 niñas); no hay escalado en la app.
 - Marca `"estimated": true` en cada cantidad que no venga de la fuente, y `"kcal_estimated": true` si calculas las calorías.
@@ -127,13 +134,14 @@ Para planificar varios días de una vez. Se pega en `/importar` igual que una re
 | `meals` | sí (1–62) | Una entrada por día y franja. No puede repetirse la misma fecha y franja. |
 | `meals[].date` | sí | `AAAA-MM-DD`, fecha real. |
 | `meals[].slot` | sí | `lunch` (comida) · `dinner` (cena). |
-| `meals[].recipe_id` | según estado | Receta planificada: una que ya exista en la app o una incluida en `recipes`. |
+| `meals[].recipe_id` | según estado | Receta planificada: una que ya exista en la app o una incluida en `recipes`. Debe ser un plato principal (`course: "main"`). |
 | `meals[].status` | no | `planned` · `away` (fuera de casa) · `empty` (sin planificar). Si falta: `planned` si hay `recipe_id`, `empty` si no. `planned` exige receta; `away` y `empty` no la llevan. |
 | `meals[].note` | no | Texto libre corto. |
 | `recipes` | no (`[]`) | Recetas nuevas en formato `recipe@1` (máximo 30). |
 
 ### Qué hace la app al importar un menú
 
+- Rechaza las comidas que apuntan a recetas que no son plato principal (`course` distinto de `main`).
 - Valida todo antes de escribir nada. Errores legibles con la ruta del campo (`meals[2].recipe_id`).
 - Las recetas de `recipes` que **no existen** se crean con las mismas reglas que `recipe@1` (el catálogo manda, etc.). Las que **ya existen no se modifican**; la respuesta las enumera en `existing_recipes`. Para cambiar una receta existente, impórtala sola con "Reemplazar".
 - Cada comida sustituye lo que hubiera planificado en esa fecha y franja.
