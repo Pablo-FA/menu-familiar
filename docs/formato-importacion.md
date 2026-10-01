@@ -110,6 +110,38 @@ No se admiten campos que no estén en esta tabla: una errata (`"minutos"`) da er
 
 ---
 
+## Planificar con Claude (flujo desde el Planificador)
+
+1. **Planificar con Claude** (botón ✦ o tarjeta "Faltan N comidas"): la app copia al portapapeles una instrucción corta y, en un bloque ```json, el contexto de la semana visible (`menu-familiar/contexto@1`, abajo) y abre el proyecto de Claude. Ahí se pega y Claude responde con un `plan@1`.
+2. **Pegar menú**: la app lee el portapapeles (en iOS hay que tocar la burbuja "Pegar"; si no se puede, abre un cuadro para pegarlo a mano) y busca el `plan@1` en el texto: vale el JSON solo, un bloque ```json o el JSON en medio de otro texto.
+3. **Revisión**: antes de escribir nada, la app enseña qué cambiaría (`POST /api/plan/preview`): comidas que se añaden, las que sustituyen a otra (en ámbar), recetas nuevas que se añadirían al recetario y errores. Cada comida lleva una casilla, marcada por defecto.
+4. **Aplicar**: solo se aplican las comidas marcadas (y las recetas nuevas que usan). Se puede **deshacer** justo después: las franjas vuelven a lo que tenían; las recetas nuevas se quedan en el recetario.
+
+## `menu-familiar/contexto@1`: lo que la app le pasa a Claude
+
+Lo genera `GET /api/claude-context?week=AAAA-MM-DD` (el lunes) y se copia en JSON compacto. Los campos `null` y las listas vacías se omiten.
+
+```json
+{ "format": "menu-familiar/contexto@1",
+  "generated_at": "2026-10-04T19:30:00+02:00",
+  "week": { "from": "2026-10-05", "to": "2026-10-11" },
+  "empty_slots": [ { "date": "2026-10-06", "slot": "dinner" } ],
+  "planned": [ { "date": "2026-10-05", "slot": "lunch", "status": "away" }, { "date": "2026-10-05", "slot": "dinner", "recipe_id": "crema-calabaza-miso" } ],
+  "recent_meals": [ { "date": "2026-09-28", "slot": "dinner", "recipe_id": "crema-calabaza-curry", "stars": 4 } ],
+  "recipes": [ { "id": "…", "title": "…", "minutes": 40, "protein": "verdura", "suits": "both", "kcal_adult": 450, "tags": ["…"], "freezer_note": "…", "times_cooked": 2, "last_cooked": "2026-09-28", "avg_stars": 4.5 } ],
+  "ratings": [ { "date": "2026-10-02", "slot": "dinner", "recipe_id": "…", "stars": 3, "note": "…" } ] }
+```
+
+| Campo | Contenido |
+| --- | --- |
+| `generated_at` | Hora de Madrid con su desfase. |
+| `week` | Lunes y domingo de la semana a planificar. |
+| `empty_slots` | Huecos vacíos de la semana a partir de hoy (los que hay que rellenar). |
+| `planned` | Lo ya planificado en la semana: receta o `"status": "away"` (fuera de casa), con `note` si la hay. |
+| `recent_meals` | Comidas planificadas con receta de los 21 días anteriores al lunes, con `stars` si se valoraron. |
+| `recipes` | Todas las recetas `main` no archivadas, con veces cocinada, última vez y media de estrellas. |
+| `ratings` | Los 40 últimos registros de cocinado con estrellas o nota, del más reciente al más antiguo. |
+
 ## `menu-familiar/plan@1`: un menú
 
 Para planificar varios días de una vez. Se pega en `/importar` igual que una receta (la página detecta el formato) o se envía a `POST /api/plan/import`.
@@ -139,8 +171,11 @@ Para planificar varios días de una vez. Se pega en `/importar` igual que una re
 | `meals[].note` | no | Texto libre corto. |
 | `recipes` | no (`[]`) | Recetas nuevas en formato `recipe@1` (máximo 30). |
 
+Una comida puede ser solo `{ "date": "…", "slot": "dinner", "status": "away" }` (fuera de casa, sin receta).
+
 ### Qué hace la app al importar un menú
 
+- Desde el Planificador, **solo se aplican las comidas que Pablo deja marcadas** en la revisión; `/importar` aplica el plan entero.
 - Rechaza las comidas que apuntan a recetas que no son plato principal (`course` distinto de `main`).
 - Valida todo antes de escribir nada. Errores legibles con la ruta del campo (`meals[2].recipe_id`).
 - Las recetas de `recipes` que **no existen** se crean con las mismas reglas que `recipe@1` (el catálogo manda, etc.). Las que **ya existen no se modifican**; la respuesta las enumera en `existing_recipes`. Para cambiar una receta existente, impórtala sola con "Reemplazar".
