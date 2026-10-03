@@ -16,6 +16,9 @@ export interface RecipeSummary {
   cover_photo_key: string | null;
   /** URL para mostrar la portada (/api/photos/…), o null si no hay. */
   photo_url: string | null;
+  /** Miniatura (480 px) para la galería; la foto completa si aún no tiene. */
+  thumb_url: string | null;
+  has_thumb: boolean;
   archived: boolean;
   times_cooked: number;
   last_cooked_at: string | null;

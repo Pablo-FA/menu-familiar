@@ -14,6 +14,8 @@ import {
 } from "../src/shared/gallery";
 import { extractPlan, extractRecipe } from "../src/shared/plan-extract";
 import { exportRecipe, improveRequestText } from "../src/shared/recipe-export";
+import { draftFromRecipe, draftToRecipe, parseQuantity, timerStep } from "../src/shared/recipe-draft";
+import { parseRecipeImport } from "../src/shared/recipe-format";
 import { afterFailure, CONNECTED, isSessionExpired, SessionExpiredError } from "../src/shared/session";
 import app from "../src/worker/index";
 
@@ -258,5 +260,36 @@ describe("Compra: receta editada", () => {
     expect(list.changes).toEqual({ count: 1, first: "Lentejas caseras: la receta ha cambiado." });
     await send("POST", "/shopping/update");
     expect((await (await send("GET", "/shopping")).json<ShoppingListResponse>()).changes).toBeNull();
+  });
+});
+
+describe("borrador del editor", () => {
+  it("sin cambios, el borrador da la misma receta que la exportación; con coma, decimales", async () => {
+    await send("POST", "/recipes/import?replace=true", recipe("borrador", { steps: [{ text: "Añade el agua.", uses: ["agua", "sal"] }] }));
+    const detail = await (await send("GET", "/recipes/borrador")).json<RecipeDetail>();
+    const draft = draftFromRecipe(detail);
+    expect(draftToRecipe(draft)).toEqual(exportRecipe(detail));
+    expect(parseRecipeImport(draftToRecipe(draft)).ok).toBe(true);
+
+    // Cantidad con coma; quitar la sal la saca de uses; renombrar el agua también.
+    const first = draft.ingredients[0];
+    if (!first) throw new Error("sin ingredientes");
+    const edited = {
+      ...draft,
+      ingredients: [{ ...first, quantity: "0,5", unit: "kg" as const }, ...draft.ingredients.slice(1).filter((i) => i.name !== "sal")],
+    };
+    const json = draftToRecipe(edited);
+    expect(json.ingredients[0]).toMatchObject({ quantity: 0.5, unit: "kg" });
+    expect(json.steps[0]?.uses).toEqual(["agua"]);
+    const renamed = draftToRecipe({ ...edited, ingredients: edited.ingredients.map((i) => (i.name === "agua" ? { ...i, name: "agua mineral" } : i)) });
+    expect(renamed.steps[0]?.uses).toBeNull();
+    expect(parseRecipeImport(renamed).ok).toBe(true);
+  });
+
+  it("valida igual que recipe@1 y convierte cantidades", () => {
+    expect([parseQuantity("1,5"), parseQuantity(" 2 "), parseQuantity(""), Number.isNaN(parseQuantity("1,2,3") as number)]).toEqual([1.5, 2, null, true]);
+    expect([timerStep(9, 1), timerStep(10, 1), timerStep(12, 1), timerStep(15, -1), timerStep(12, -1), timerStep(10, -1), timerStep(1, -1)]).toEqual([
+      10, 15, 15, 10, 10, 9, 1,
+    ]);
   });
 });

@@ -18,6 +18,11 @@ export function progressKey(date: string, slot: string): string {
   return `cocina:${date}:${slot}`;
 }
 
+/** «Cocinar ahora» (sin comida del plan). */
+export function recipeProgressKey(recipeId: string): string {
+  return `cocina:receta:${recipeId}`;
+}
+
 export function emptyProgress(now: number): CookProgress {
   return { step: 0, checked: [], timers: [], finished: false, savedAt: now };
 }

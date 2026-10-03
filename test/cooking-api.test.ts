@@ -161,6 +161,21 @@ describe("POST /api/recipes/:id/photo", () => {
 
     const detail = await (await send("GET", "/recipes/con-foto")).json<RecipeDetail>();
     expect(detail.photo_url).toBe(b.photo_url);
+    // Sin miniatura todavía: la galería usa la foto completa.
+    expect(detail).toMatchObject({ thumb_url: b.photo_url, has_thumb: false });
+
+    // Miniatura de la portada actual; una portada nueva la invalida y la borra.
+    const thumb = await send("POST", `/recipes/con-foto/photo/thumb?cover=${encodeURIComponent(b.cover_photo_key)}`, jpeg(3), { "Content-Type": "image/jpeg" });
+    expect(thumb.status).toBe(201);
+    const withThumb = await (await send("GET", "/recipes/con-foto")).json<RecipeDetail>();
+    expect(withThumb.thumb_url).toBe(b.photo_url.replace(/\.jpg$/, ".thumb.jpg"));
+    expect(withThumb.has_thumb).toBe(true);
+    const stale = await send("POST", `/recipes/con-foto/photo/thumb?cover=${encodeURIComponent(a.cover_photo_key)}`, jpeg(3), { "Content-Type": "image/jpeg" });
+    expect(stale.status).toBe(409);
+    await new Promise((r) => setTimeout(r, 5));
+    await send("POST", "/recipes/con-foto/photo", jpeg(4), { "Content-Type": "image/jpeg" });
+    expect(await env.PHOTOS.get(b.cover_photo_key.replace(/\.jpg$/, ".thumb.jpg"))).toBeNull();
+    expect((await (await send("GET", "/recipes/con-foto")).json<RecipeDetail>()).has_thumb).toBe(false);
   });
 
   it("valida tipo, contenido y receta", async () => {

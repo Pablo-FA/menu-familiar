@@ -158,33 +158,61 @@ export const MAX_PHOTO_BYTES = 10 * 1024 * 1024;
 // cachear para siempre; la foto anterior se borra después de actualizar la receta.
 recipes.post("/:id/photo", async (c) => {
   const id = c.req.param("id");
-  const contentType = c.req.header("Content-Type")?.split(";")[0]?.trim().toLowerCase();
-  if (contentType !== "image/jpeg") {
-    return c.json<ApiError>({ error: "La foto debe enviarse como image/jpeg" }, 415);
-  }
-  const declared = Number(c.req.header("Content-Length") ?? "0");
-  if (declared > MAX_PHOTO_BYTES) return c.json<ApiError>({ error: "La foto pesa más de 10 MB" }, 413);
 
-  const current = await c.env.DB.prepare("SELECT cover_photo_key FROM recipes WHERE id = ?")
+  const current = await c.env.DB.prepare("SELECT cover_photo_key, cover_thumb_key FROM recipes WHERE id = ?")
     .bind(id)
-    .first<{ cover_photo_key: string | null }>();
+    .first<{ cover_photo_key: string | null; cover_thumb_key: string | null }>();
   if (!current) return c.json<ApiError>({ error: "Receta no encontrada" }, 404);
 
-  const body = new Uint8Array(await c.req.arrayBuffer());
-  if (body.byteLength === 0) return c.json<ApiError>({ error: "La foto está vacía" }, 400);
-  if (body.byteLength > MAX_PHOTO_BYTES) return c.json<ApiError>({ error: "La foto pesa más de 10 MB" }, 413);
-  // Firma JPEG (FF D8 FF): que el tipo declarado sea el real.
-  if (body[0] !== 0xff || body[1] !== 0xd8 || body[2] !== 0xff) {
-    return c.json<ApiError>({ error: "El archivo no es un JPEG válido" }, 415);
-  }
+  const body = await readJpeg(c.req.raw, MAX_PHOTO_BYTES);
+  if ("error" in body) return c.json<ApiError>({ error: body.error }, body.status);
 
   const key = `recipes/${id}/${Date.now()}.jpg`;
-  await c.env.PHOTOS.put(key, body, { httpMetadata: { contentType: "image/jpeg" } });
+  await c.env.PHOTOS.put(key, body.bytes, { httpMetadata: { contentType: "image/jpeg" } });
   // Sin tocar updated_at: la foto no cambia la receta (ni la lista de la compra).
-  await c.env.DB.prepare("UPDATE recipes SET cover_photo_key = ? WHERE id = ?").bind(key, id).run();
-  if (current.cover_photo_key && current.cover_photo_key !== key) {
-    await c.env.PHOTOS.delete(current.cover_photo_key).catch(() => undefined);
+  // La miniatura anterior deja de valer; el móvil sube la nueva justo después.
+  await c.env.DB.prepare("UPDATE recipes SET cover_photo_key = ?, cover_thumb_key = NULL WHERE id = ?").bind(key, id).run();
+  for (const old of [current.cover_photo_key, current.cover_thumb_key]) {
+    if (old && old !== key) await c.env.PHOTOS.delete(old).catch(() => undefined);
   }
 
   return c.json<PhotoResponse>({ cover_photo_key: key, photo_url: photoUrl(key) }, 201);
 });
+
+/** Tamaño máximo de una miniatura (480 px). */
+export const MAX_THUMB_BYTES = 1024 * 1024;
+
+// POST /api/recipes/:id/photo/thumb — miniatura de la portada actual (JPEG en bruto).
+// Se guarda junto a la portada ({clave}.thumb.jpg); si la portada ha cambiado entre
+// medias, se rechaza para no mezclar fotos.
+recipes.post("/:id/photo/thumb", async (c) => {
+  const id = c.req.param("id");
+  const expected = c.req.query("cover");
+  const current = await c.env.DB.prepare("SELECT cover_photo_key, cover_thumb_key FROM recipes WHERE id = ?")
+    .bind(id)
+    .first<{ cover_photo_key: string | null; cover_thumb_key: string | null }>();
+  if (!current) return c.json<ApiError>({ error: "Receta no encontrada" }, 404);
+  if (!current.cover_photo_key || (expected && expected !== current.cover_photo_key)) {
+    return c.json<ApiError>({ error: "La portada ha cambiado" }, 409);
+  }
+  const body = await readJpeg(c.req.raw, MAX_THUMB_BYTES);
+  if ("error" in body) return c.json<ApiError>({ error: body.error }, body.status);
+  const key = current.cover_photo_key.replace(/\.jpg$/, "") + ".thumb.jpg";
+  await c.env.PHOTOS.put(key, body.bytes, { httpMetadata: { contentType: "image/jpeg" } });
+  await c.env.DB.prepare("UPDATE recipes SET cover_thumb_key = ? WHERE id = ?").bind(key, id).run();
+  if (current.cover_thumb_key && current.cover_thumb_key !== key) await c.env.PHOTOS.delete(current.cover_thumb_key).catch(() => undefined);
+  return c.json({ thumb_url: photoUrl(key) }, 201);
+});
+
+/** Lee un JPEG del cuerpo: tipo declarado, tamaño y firma (FF D8 FF). */
+async function readJpeg(req: Request, max: number): Promise<{ bytes: Uint8Array } | { error: string; status: 400 | 413 | 415 }> {
+  const contentType = req.headers.get("Content-Type")?.split(";")[0]?.trim().toLowerCase();
+  if (contentType !== "image/jpeg") return { error: "La foto debe enviarse como image/jpeg", status: 415 };
+  const limit = `La foto pesa más de ${Math.round(max / 1024 / 1024)} MB`;
+  if (Number(req.headers.get("Content-Length") ?? "0") > max) return { error: limit, status: 413 };
+  const bytes = new Uint8Array(await req.arrayBuffer());
+  if (bytes.byteLength === 0) return { error: "La foto está vacía", status: 400 };
+  if (bytes.byteLength > max) return { error: limit, status: 413 };
+  if (bytes[0] !== 0xff || bytes[1] !== 0xd8 || bytes[2] !== 0xff) return { error: "El archivo no es un JPEG válido", status: 415 };
+  return { bytes };
+}

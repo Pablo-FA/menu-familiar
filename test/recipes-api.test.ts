@@ -184,6 +184,8 @@ describe("GET /api/recipes", () => {
       tags: ["japonesa", "curry", "empanado"],
       cover_photo_key: null,
       photo_url: null,
+      thumb_url: null,
+      has_thumb: false,
       archived: false,
       times_cooked: 0,
       last_cooked_at: null,

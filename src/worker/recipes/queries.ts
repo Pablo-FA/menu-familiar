@@ -15,6 +15,7 @@ interface SummaryRow {
   kcal_estimated: number;
   tags: string;
   cover_photo_key: string | null;
+  cover_thumb_key: string | null;
   archived: number;
   times_cooked: number;
   last_cooked_at: string | null;
@@ -34,7 +35,7 @@ interface DetailRow extends SummaryRow {
 
 const SUMMARY_COLUMNS = `
   r.id, r.title, r.minutes, r.protein, r.suits, r.course, r.kcal_adult, r.kcal_estimated, r.tags,
-  r.cover_photo_key, r.archived, r.created_at, (r.freezer_note IS NOT NULL) AS has_freezer,
+  r.cover_photo_key, r.cover_thumb_key, r.archived, r.created_at, (r.freezer_note IS NOT NULL) AS has_freezer,
   (SELECT json_group_array(i.name) FROM recipe_ingredients ri JOIN ingredients i ON i.id = ri.ingredient_id
      WHERE ri.recipe_id = r.id) AS ingredient_names,
   (SELECT COUNT(*) FROM cook_logs l WHERE l.recipe_id = r.id) AS times_cooked,
@@ -56,6 +57,8 @@ function toSummary(row: SummaryRow): RecipeSummary {
     tags: JSON.parse(row.tags) as string[],
     cover_photo_key: row.cover_photo_key,
     photo_url: row.cover_photo_key ? photoUrl(row.cover_photo_key) : null,
+    thumb_url: row.cover_thumb_key ? photoUrl(row.cover_thumb_key) : row.cover_photo_key ? photoUrl(row.cover_photo_key) : null,
+    has_thumb: row.cover_thumb_key !== null,
     archived: row.archived === 1,
     times_cooked: row.times_cooked,
     last_cooked_at: row.last_cooked_at,

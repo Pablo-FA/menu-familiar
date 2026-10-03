@@ -1,4 +1,4 @@
-import { Camera, ChevronLeft, Clock, Play } from "lucide-react";
+import { Camera, Clock, Play } from "lucide-react";
 import { useEffect, useRef, useState, type RefObject } from "react";
 import type { DayMeal, DayResponse, RecipeDetail } from "../../shared/api";
 import { longDate, madridNow, shortDate, weekdayName } from "../../shared/dates";
@@ -67,24 +67,8 @@ function EmptyDay({ date }: { date: string }) {
   );
 }
 
-/**
- * Portada + hoja de una receta. En Hoy lleva fecha, sol/luna y play; con `onBack` es la
- * vista suelta de una receta (/receta/:id): botón de volver y sin sol/luna ni play.
- */
-export function MealView({
-  date,
-  slot,
-  meal,
-  onToggle,
-  onBack,
-}: {
-  date: string;
-  slot: Slot;
-  meal: DayMeal;
-  onToggle?: () => void;
-  onBack?: () => void;
-}) {
-  const standalone = onBack !== undefined;
+/** Portada + hoja de la comida de hoy: fecha, sol/luna y play. */
+function MealView({ date, slot, meal, onToggle }: { date: string; slot: Slot; meal: DayMeal; onToggle: () => void }) {
   const recipe = meal.recipe;
   const coverRef = useRef<HTMLElement>(null);
   const photoRef = useRef<HTMLDivElement>(null);
@@ -129,23 +113,15 @@ export function MealView({
         <div className={styles.shadeBottom} />
 
         <header ref={dateRef} className={styles.dateHeader}>
-          {standalone ? (
-            <button type="button" className={styles.backButton} onClick={onBack} aria-label="Volver">
-              <ChevronLeft size={24} strokeWidth={2.2} aria-hidden="true" />
-            </button>
-          ) : (
-            <>
-              <SunMoonCoin slot={slot} onToggle={onToggle ?? (() => undefined)} sunColor="var(--sun-cover)" moonColor="#fff" />
-              <div>
-                <p className={styles.weekday}>{weekdayName(date)}</p>
-                <h1 className={styles.date}>{longDate(date)}</h1>
-              </div>
-            </>
-          )}
+          <SunMoonCoin slot={slot} onToggle={onToggle} sunColor="var(--sun-cover)" moonColor="#fff" />
+          <div>
+            <p className={styles.weekday}>{weekdayName(date)}</p>
+            <h1 className={styles.date}>{longDate(date)}</h1>
+          </div>
         </header>
 
         <div ref={titleRef} className={styles.titleBlock}>
-          {!standalone && <p className={styles.slotLabel}>{SLOT_LABEL[slot]}</p>}
+          <p className={styles.slotLabel}>{SLOT_LABEL[slot]}</p>
           {recipe ? (
             <>
               <h2 className={styles.title}>
@@ -155,11 +131,9 @@ export function MealView({
               </h2>
               <div className={styles.metaRow}>
                 <RecipePills recipe={recipe} cooked={meal.cook_log !== null} />
-                {!standalone && (
-                  <button type="button" className={styles.coverPlay} onClick={cook} aria-label="Cocinar">
-                    <Play size={28} fill="currentColor" strokeWidth={0} aria-hidden="true" />
-                  </button>
-                )}
+                <button type="button" className={styles.coverPlay} onClick={cook} aria-label="Cocinar">
+                  <Play size={28} fill="currentColor" strokeWidth={0} aria-hidden="true" />
+                </button>
               </div>
             </>
           ) : (
@@ -177,22 +151,16 @@ export function MealView({
           <div ref={blurTintRef} className={styles.blurTint} aria-hidden="true" />
           <div ref={blurStrongRef} className={styles.blurStrong} aria-hidden="true" />
           <div ref={barRef} className={`${styles.bar} glass-bar`} inert>
-            {standalone ? (
-              <button type="button" className={styles.barBack} onClick={onBack} aria-label="Volver">
-                <ChevronLeft size={22} strokeWidth={2.2} aria-hidden="true" />
-              </button>
-            ) : (
-              <SunMoonCoin slot={slot} onToggle={onToggle ?? (() => undefined)} sunColor="var(--sun)" moonColor="var(--fg)" size={24} />
-            )}
+            <SunMoonCoin slot={slot} onToggle={onToggle} sunColor="var(--sun)" moonColor="var(--fg)" size={24} />
             <div className={styles.barText}>
-              <p className={styles.barMeta}>{standalone ? `${recipe.minutes} min` : `${SLOT_LABEL[slot]} · ${shortDate(date)}`}</p>
+              <p className={styles.barMeta}>
+                {SLOT_LABEL[slot]} · {shortDate(date)}
+              </p>
               <p className={styles.barTitle}>{recipe.title}</p>
             </div>
-            {!standalone && (
-              <button type="button" className={styles.barPlay} onClick={cook} aria-label="Cocinar">
-                <Play size={20} fill="currentColor" strokeWidth={0} aria-hidden="true" />
-              </button>
-            )}
+            <button type="button" className={styles.barPlay} onClick={cook} aria-label="Cocinar">
+              <Play size={20} fill="currentColor" strokeWidth={0} aria-hidden="true" />
+            </button>
           </div>
         </>
       )}
@@ -225,6 +193,15 @@ function RecipeSheet({ recipe, ref }: { recipe: RecipeDetail; ref: RefObject<HTM
   return (
     <article ref={ref} className={styles.sheet} aria-label={recipe.title}>
       <div className={styles.handle} aria-hidden="true" />
+      <RecipeBody recipe={recipe} />
+    </article>
+  );
+}
+
+/** Ingredientes y pasos de una receta (Hoy y la ficha). */
+export function RecipeBody({ recipe }: { recipe: Pick<RecipeDetail, "ingredients" | "steps"> }) {
+  return (
+    <>
       <section aria-labelledby="ingredients-title">
         <div className={styles.sectionHead}>
           <h2 id="ingredients-title" className={styles.sectionTitle}>
@@ -269,7 +246,7 @@ function RecipeSheet({ recipe, ref }: { recipe: RecipeDetail; ref: RefObject<HTM
           ))}
         </ol>
       </section>
-    </article>
+    </>
   );
 }
 
