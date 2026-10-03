@@ -84,7 +84,7 @@ shopping.post("/shopping", async (c) => {
   const db = c.env.DB;
   const planned = await plannedMeals(db, from, to);
   const covered = coveredMeals(
-    planned.map(({ date, slot, recipe_id }) => ({ date, slot, recipe_id })),
+    planned.map(({ date, slot, recipe_id, updated_at }) => ({ date, slot, recipe_id, updated_at })),
     excluded,
   );
   if (covered.length === 0) return c.json<ApiError>({ error: "No hay comidas planificadas para esa lista" }, 400);

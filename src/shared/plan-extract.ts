@@ -1,30 +1,35 @@
-import { PLAN_FORMAT } from "./formats";
+import { PLAN_FORMAT, RECIPE_FORMAT } from "./formats";
 
 /**
- * Busca un plan@1 en un texto pegado: JSON puro, un bloque ```json o el JSON en medio de
- * otro texto. Devuelve el primer objeto con "format": "menu-familiar/plan@1", o null.
+ * Busca un objeto de un formato (`"format": "menu-familiar/…"`) en un texto pegado: JSON
+ * puro, un bloque ```json o el JSON en medio de otro texto. Devuelve el primero, o null.
  */
-export function extractPlan(text: string): unknown {
+export function extractFormat(text: string, format: string): unknown {
   const candidates: string[] = [];
   for (const match of text.matchAll(/```(?:json)?\s*([\s\S]*?)```/gi)) if (match[1]) candidates.push(match[1]);
   candidates.push(text);
 
   for (const candidate of candidates) {
-    const found = findPlanObject(candidate);
+    const found = findObject(candidate, format);
     if (found) return found;
   }
   return null;
 }
 
-function isPlan(value: unknown): boolean {
-  return typeof value === "object" && value !== null && (value as { format?: unknown }).format === PLAN_FORMAT;
-}
+/** El primer plan@1 del texto pegado, o null. */
+export const extractPlan = (text: string): unknown => extractFormat(text, PLAN_FORMAT);
+
+/** La primera receta recipe@1 del texto pegado, o null. */
+export const extractRecipe = (text: string): unknown => extractFormat(text, RECIPE_FORMAT);
+
+const hasFormat = (value: unknown, format: string): boolean =>
+  typeof value === "object" && value !== null && (value as { format?: unknown }).format === format;
 
 /** Prueba a parsear cada objeto {…} equilibrado del texto, de fuera adentro. */
-function findPlanObject(text: string): unknown {
+function findObject(text: string, format: string): unknown {
   try {
     const whole: unknown = JSON.parse(text.trim());
-    if (isPlan(whole)) return whole;
+    if (hasFormat(whole, format)) return whole;
   } catch {
     // No es JSON puro: se buscan objetos dentro.
   }
@@ -33,7 +38,7 @@ function findPlanObject(text: string): unknown {
     if (end === -1) continue;
     try {
       const value: unknown = JSON.parse(text.slice(start, end + 1));
-      if (isPlan(value)) return value;
+      if (hasFormat(value, format)) return value;
     } catch {
       // Sigue buscando.
     }

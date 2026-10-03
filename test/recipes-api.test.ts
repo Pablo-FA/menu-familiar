@@ -190,6 +190,9 @@ describe("GET /api/recipes", () => {
       last_stars: null,
       last_cooked: null,
       avg_stars: null,
+      ingredient_names: katsukare.ingredients.map((i) => i.name),
+      has_freezer: true,
+      created_at: expect.any(String),
     });
     expect(list.some((r) => r.id === "archivada")).toBe(false);
 

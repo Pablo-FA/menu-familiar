@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from "react";
 import type { ShoppingItem, ShoppingListResponse } from "../../shared/api";
 import { applyOps, retryDelay, type CreateFields, type PatchFields, type ShoppingOp } from "../../shared/shopping-sync";
+import { afterFailure, CONNECTED, type ConnectionState } from "../../shared/session";
 import { api, ApiRequestError } from "../api";
 
 /**
@@ -23,6 +24,8 @@ export interface ShoppingState {
   pending: number;
   /** Sin conexión: el navegador lo dice o la última petición falló por red. */
   offline: boolean;
+  /** La sesión de Access ha caducado: hay que recargar para volver a entrar. */
+  sessionExpired: boolean;
 }
 
 function read<T>(key: string, fallback: T): T {
@@ -58,14 +61,15 @@ const makeItem = (op: Extract<ShoppingOp, { op: "create" }>): ShoppingItem => ({
 
 let server: ShoppingListResponse | null | undefined = read<ShoppingListResponse | null | undefined>(LIST_KEY, undefined);
 let queue: ShoppingOp[] = read<ShoppingOp[]>(QUEUE_KEY, []);
-let networkFailed = false;
+let connection: ConnectionState = CONNECTED;
 let state: ShoppingState = compute();
 const listeners = new Set<() => void>();
 
 function compute(): ShoppingState {
   const list = server ? { ...server, items: applyOps(server.items, queue, makeItem) } : server;
-  const offline = networkFailed || (typeof navigator !== "undefined" && navigator.onLine === false);
-  return { list, pending: queue.length, offline };
+  const browserOffline = typeof navigator !== "undefined" && navigator.onLine === false;
+  const sessionExpired = connection.sessionExpired && !browserOffline;
+  return { list, pending: queue.length, offline: !sessionExpired && (connection.networkFailed || browserOffline), sessionExpired };
 }
 
 function emit() {
@@ -78,7 +82,10 @@ function setServer(list: ShoppingListResponse | null) {
   write(LIST_KEY, list);
 }
 
-const isNetworkError = (err: unknown) => !(err instanceof ApiRequestError);
+const isHttpError = (err: unknown) => err instanceof ApiRequestError;
+const fail = (err: unknown) => {
+  connection = afterFailure(connection, err, isHttpError);
+};
 
 // ---------- Lectura ----------
 
@@ -93,10 +100,10 @@ export function loadList(): Promise<void> {
       if (queue.length > 0) return; // sigue sin poder enviar: no pisar lo local
       const list = await api.get<ShoppingListResponse | null>("/shopping");
       setServer(list);
-      networkFailed = false;
+      connection = CONNECTED;
     } catch (err) {
-      if (isNetworkError(err)) networkFailed = true;
-      else throw err;
+      if (isHttpError(err)) throw err;
+      fail(err);
     } finally {
       loading = null;
       emit();
@@ -108,7 +115,7 @@ export function loadList(): Promise<void> {
 /** Sustituye la lista (tras crear o actualizar en el servidor). */
 export function replaceList(list: ShoppingListResponse | null) {
   setServer(list);
-  networkFailed = false;
+  connection = CONNECTED;
   emit();
 }
 
@@ -156,7 +163,7 @@ export function flush(): Promise<void> {
       queue = queue.filter((op) => !sentIds.has(op.id));
       write(QUEUE_KEY, queue);
       setServer(list);
-      networkFailed = false;
+      connection = CONNECTED;
       attempt = 0;
     } catch (err) {
       if (err instanceof ApiRequestError && err.status === 400) {
@@ -165,7 +172,9 @@ export function flush(): Promise<void> {
         queue = queue.filter((op) => !sentIds.has(op.id));
         write(QUEUE_KEY, queue);
       } else {
-        if (isNetworkError(err)) networkFailed = true;
+        fail(err);
+        // Con la sesión caducada no se reintenta: la cola se envía al volver a entrar.
+        if (connection.sessionExpired) return;
         if (retryTimer) clearTimeout(retryTimer);
         retryTimer = setTimeout(() => {
           retryTimer = null;
@@ -178,7 +187,7 @@ export function flush(): Promise<void> {
       emit();
     }
     // Lo que se añadió a la cola mientras se enviaba.
-    if (queue.length > 0 && !networkFailed) await flush();
+    if (queue.length > 0 && !connection.networkFailed && !connection.sessionExpired) await flush();
   })();
   return flushing;
 }

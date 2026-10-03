@@ -178,6 +178,8 @@ export interface SnapshotMeal {
   date: string;
   slot: Slot;
   recipe_id: string;
+  /** updated_at de la receta al hacer la lista (las listas del paso 5 no lo tienen). */
+  updated_at?: string | undefined;
 }
 
 export interface MealRef {
@@ -188,7 +190,9 @@ export interface MealRef {
 export type MenuChange =
   | { kind: "added"; date: string; slot: Slot; recipe_id: string }
   | { kind: "removed"; date: string; slot: Slot; recipe_id: string }
-  | { kind: "changed"; date: string; slot: Slot; recipe_id: string; previous_recipe_id: string };
+  | { kind: "changed"; date: string; slot: Slot; recipe_id: string; previous_recipe_id: string }
+  /** La misma receta, pero se ha editado desde que se hizo la lista. */
+  | { kind: "edited"; date: string; slot: Slot; recipe_id: string };
 
 const mealKey = (m: MealRef) => `${m.date}#${m.slot}`;
 const SLOT_RANK: Record<Slot, number> = { lunch: 0, dinner: 1 };
@@ -200,16 +204,25 @@ export function coveredMeals(planned: SnapshotMeal[], excluded: MealRef[]): Snap
   return planned.filter((m) => !skip.has(mealKey(m))).sort(byMeal);
 }
 
-/** Diferencias entre las comidas con las que se hizo la lista y las de ahora, por fecha. */
+/**
+ * Diferencias entre las comidas con las que se hizo la lista y las de ahora, por fecha.
+ * Una receta editada (otro updated_at) cuenta una sola vez aunque esté en varias comidas;
+ * si el snapshot no guardó updated_at (listas antiguas), no se puede saber y no cuenta.
+ */
 export function menuChanges(snapshot: SnapshotMeal[], current: SnapshotMeal[]): MenuChange[] {
   const before = new Map(snapshot.map((m) => [mealKey(m), m]));
   const now = new Map(current.map((m) => [mealKey(m), m]));
   const changes: MenuChange[] = [];
+  const edited = new Set<string>();
   for (const [key, m] of now) {
     const old = before.get(key);
     if (!old) changes.push({ kind: "added", date: m.date, slot: m.slot, recipe_id: m.recipe_id });
     else if (old.recipe_id !== m.recipe_id)
       changes.push({ kind: "changed", date: m.date, slot: m.slot, recipe_id: m.recipe_id, previous_recipe_id: old.recipe_id });
+    else if (old.updated_at && m.updated_at && old.updated_at !== m.updated_at && !edited.has(m.recipe_id)) {
+      edited.add(m.recipe_id);
+      changes.push({ kind: "edited", date: m.date, slot: m.slot, recipe_id: m.recipe_id });
+    }
   }
   for (const [key, m] of before) {
     if (!now.has(key)) changes.push({ kind: "removed", date: m.date, slot: m.slot, recipe_id: m.recipe_id });
@@ -260,13 +273,14 @@ export function describeChanges(changes: MenuChange[], titleOf: (recipeId: strin
   const first = changes[0];
   if (!first) return null;
   const where = `${dayTitle(first.date)}, ${SLOT_WORD[first.slot]}`;
+  const more = changes.length - 1;
+  const tail = more === 0 ? "" : more === 1 ? " y 1 cambio más" : ` y ${more} cambios más`;
+  if (first.kind === "edited") return { count: changes.length, first: `${titleOf(first.recipe_id)}: la receta ha cambiado${tail}.` };
   const what =
     first.kind === "changed"
       ? `${titleOf(first.recipe_id)} en lugar de ${titleOf(first.previous_recipe_id)}`
       : first.kind === "added"
         ? `se ha añadido ${titleOf(first.recipe_id)}`
         : `ya no está ${titleOf(first.recipe_id)}`;
-  const more = changes.length - 1;
-  const tail = more === 0 ? "" : more === 1 ? " y 1 cambio más" : ` y ${more} cambios más`;
   return { count: changes.length, first: `${where}: ${what}${tail}.` };
 }
