@@ -1,4 +1,4 @@
-import { BookOpen, Compass, ShoppingBasket } from "lucide-react";
+import { BookOpen, Compass } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { RatingPrompt } from "../shared/api";
 import { api } from "./api";
@@ -9,6 +9,7 @@ import { ToastProvider } from "./components/Toast";
 import { Cook } from "./cook/Cook";
 import { RecipeView } from "./pages/RecipeView";
 import { Planner } from "./planner/Planner";
+import { Shopping } from "./shopping/Shopping";
 import { Today } from "./pages/Today";
 import { Tools } from "./pages/Tools";
 import { Link, matchRoute, usePathname, type Route } from "./router";
@@ -40,7 +41,7 @@ function Screen({ route }: { route: Route }) {
     case "recipes":
       return <ComingSoon title="Recetas" Icon={BookOpen} />;
     case "shopping":
-      return <ComingSoon title="Compra" Icon={ShoppingBasket} />;
+      return <Shopping />;
     case "import":
       return <Tools />;
     case "cook":

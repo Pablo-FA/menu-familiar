@@ -1,5 +1,5 @@
 import { ArrowDownUp, ArrowUpDown, ChevronDown, ChevronLeft, ChevronRight, ClipboardPaste, Moon, Sparkles, Star, Sun, X } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { PlanMealWrite, PlanPreviewResponse, PlanRangeResponse, PlanSlotInfo, PreviewMeal, RecipeSummary } from "../../shared/api";
 import { PROTEIN_LABEL, weekBalance } from "../../shared/balance";
 import { addDays, isIsoDate, madridNow } from "../../shared/dates";
@@ -23,6 +23,7 @@ import {
 import { api } from "../api";
 import { RatingDialog } from "../components/RatingSheet";
 import { useToast } from "../components/Toast";
+import { useScrollScene } from "../components/useScrollScene";
 import { navigate } from "../router";
 import { copyClaudeContext, openClaude, readClipboard } from "./claude";
 import { ClaudeMenu } from "./ClaudeMenu";
@@ -687,57 +688,4 @@ function SlotRow({
       {end && <span className={styles.rowEnd}>{end}</span>}
     </button>
   );
-}
-
-// ---------- Escena ligada al scroll (mismo mecanismo que Hoy) ----------
-
-const clamp01 = (x: number) => Math.min(1, Math.max(0, x));
-const smoothstep = (x: number) => {
-  const t = clamp01(x);
-  return t * t * (3 - 2 * t);
-};
-
-function useScrollScene(
-  refs: {
-    headerRef: RefObject<HTMLElement | null>;
-    barRef: RefObject<HTMLElement | null>;
-    blurTintRef: RefObject<HTMLElement | null>;
-    blurStrongRef: RefObject<HTMLElement | null>;
-  },
-  moving: boolean,
-) {
-  const { headerRef, barRef, blurTintRef, blurStrongRef } = refs;
-  useEffect(() => {
-    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    let frame = 0;
-    function apply() {
-      frame = 0;
-      const s = Math.max(0, window.scrollY);
-      if (headerRef.current) headerRef.current.style.opacity = String(clamp01(1 - s / 70));
-      const bar = barRef.current;
-      if (bar) {
-        const p = smoothstep((s - 50) / 60);
-        bar.style.opacity = String(p);
-        bar.style.transform = reduce ? "" : `translate3d(0, ${-12 * (1 - p)}px, 0) scale(${0.92 + 0.08 * p})`;
-        const interactive = p >= 0.5;
-        bar.style.pointerEvents = interactive ? "auto" : "none";
-        bar.inert = !interactive;
-      }
-      // En modo mover, el desenfoque superior queda siempre activo.
-      const blur = moving ? "1" : String(clamp01((s - 10) / 60));
-      if (blurTintRef.current) blurTintRef.current.style.opacity = blur;
-      if (blurStrongRef.current) blurStrongRef.current.style.opacity = blur;
-    }
-    const schedule = () => {
-      if (!frame) frame = requestAnimationFrame(apply);
-    };
-    apply();
-    window.addEventListener("scroll", schedule, { passive: true });
-    window.addEventListener("resize", schedule);
-    return () => {
-      cancelAnimationFrame(frame);
-      window.removeEventListener("scroll", schedule);
-      window.removeEventListener("resize", schedule);
-    };
-  }, [headerRef, barRef, blurTintRef, blurStrongRef, moving]);
 }
