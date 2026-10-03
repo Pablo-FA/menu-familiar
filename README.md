@@ -2,7 +2,7 @@
 
 App web personal para planificar el menú familiar. La usa una sola persona desde iPhone, iPad, Windows y Mac.
 
-**Estado actual: paso 4 (Planificador).** Además de lo anterior, el **Planificador** muestra la semana (tira o mes), el equilibrio de proteínas, y permite elegir, cambiar, mover o intercambiar comidas con deshacer. Se planifica con Claude copiando el contexto de la semana y pegando su respuesta con vista previa. Antes: **paso 3 (modo cocina).** Funciona el ciclo diario completo: **Hoy** muestra la comida o la cena del día, el **modo cocina** la guía paso a paso (cantidades por paso, temporizadores, lista de ingredientes, pantalla siempre encendida) y al terminar se hace la **foto de portada** y se valora. Los menús se cargan pegando un JSON `plan@1` en `/importar`. Planificador, Recetas y Compra están marcados como "Próximamente".
+**Estado actual: paso 5 (Lista de la compra).** La pestaña **Compra** genera la lista a partir de las comidas planificadas, ordenada por las 19 secciones del súper, con «Revisa en casa» para la despensa, deslizar para cambiar de sección o marcar «En casa», aviso cuando el menú cambia y funcionamiento sin conexión (service worker y cola de cambios en el móvil). Antes: **paso 4 (Planificador)**, con semana o mes, equilibrio de proteínas, mover/intercambiar y planificar con Claude; **paso 3 (modo cocina)** con foto de portada y valoración. Recetas sigue como "Próximamente".
 
 ## Stack
 
@@ -60,11 +60,12 @@ Definido en [`migrations/0002_modelo_datos.sql`](migrations/0002_modelo_datos.sq
 | `recipes` | Recetas, ya adaptadas a 4 raciones. Etiquetas como array JSON; portada como clave de R2. Se archivan, no se borran. |
 | `recipe_ingredients` | Líneas de ingrediente de cada receta, en orden, con cantidad, unidad y si es estimada. |
 | `recipe_steps` | Pasos en orden, con temporizador opcional. |
-| `plan_meals` | Menú: un registro por fecha y franja (comida o cena). *Solo esquema de momento.* |
-| `cook_logs` | Cada vez que se cocina una receta: estrellas y nota. Sin registros, la receta es "nueva". *Solo esquema.* |
-| `shopping_lists`, `shopping_items` | Lista de la compra. *Solo esquema.* |
+| `plan_meals` | Menú: un registro por fecha y franja (comida o cena). |
+| `cook_logs` | Cada vez que se cocina una receta: estrellas y nota. Sin registros, la receta es "nueva". |
+| `shopping_lists`, `shopping_items` | Lista de la compra activa (una sola) y sus líneas, con estado, sincronización por campo y `client_id` para las creadas sin conexión (migración `0005`). |
+| `shopping_ops` | Ids de operaciones de la cola del móvil ya aplicadas (para que reenviar no duplique). |
 
-Las listas que pueden crecer (secciones, proteínas, unidades) se validan en la API ([`src/shared/recipe-format.ts`](src/shared/recipe-format.ts)) y no con `CHECK` en la base de datos, para poder añadir un valor sin migración.
+Las listas que pueden crecer (secciones, proteínas, unidades) se validan en la API ([`src/shared/recipe-format.ts`](src/shared/recipe-format.ts); las secciones, en [`src/shared/aisles.ts`](src/shared/aisles.ts)) y no con `CHECK` en la base de datos, para poder añadir un valor sin migración.
 
 ## API
 
@@ -89,6 +90,15 @@ Toda bajo `/api` y protegida por Access.
 | `POST /api/plan/preview` | Qué cambiaría un `plan@1`, sin escribir: añadidos, sustituciones, recetas nuevas, errores. |
 | `GET /api/claude-context?week=` | Contexto `contexto@1` de la semana para planificar con Claude. |
 | `GET /api/photos/<clave>` | Sirve una foto de R2 con caché inmutable; 404 si no existe. |
+| `GET /api/shopping` | Lista activa con sus líneas y los cambios del menú desde que se creó (`changes`), o `null`. |
+| `GET /api/shopping/candidates?from&to` | Comidas planificadas con receta del rango y cuántas cosas quedan sin comprar en la lista actual. |
+| `POST /api/shopping` | Crea la lista: `{ from, to, excluded, carry }`. Sustituye a la anterior en la misma transacción. |
+| `POST /api/shopping/update` | Actualiza la lista con el menú actual; devuelve la lista y `{ added, removed, changed }`. |
+| `PATCH /api/shopping/items/:id` | `{ bought?, status?, aisle?, quantity_text? }`. Cambiar la sección la cambia también en el catálogo. |
+| `POST /api/shopping/items` | Añade a mano: `{ name, quantity_text?, aisle, ingredient_id? }`. |
+| `DELETE /api/shopping/items/:id` | Solo lo añadido a mano (el resto: «En casa»). |
+| `POST /api/shopping/ops` | Cola del móvil: `[{ id, item_id, op, fields, at }]`, en orden e idempotente por `id`; gana la escritura más reciente por línea y campo. |
+| `GET /api/ingredients?q=` | Hasta 10 ingredientes del catálogo, sin distinguir tildes. |
 
 Formatos de importación: [docs/formato-importacion.md](docs/formato-importacion.md).
 
@@ -100,9 +110,11 @@ Formatos de importación: [docs/formato-importacion.md](docs/formato-importacion
 - **Modo cocina** (`/cocinar/:fecha/:franja`): un paso a pantalla completa, con las cantidades que usa (de `uses` o detectadas en el texto), temporizadores simultáneos (guardados como hora de fin, sobreviven a recargas), hoja de ingredientes para marcar y gestos laterales. El progreso se guarda en `localStorage` (`cocina:{fecha}:{franja}`) durante 12 h. Pide Wake Lock para que no se apague la pantalla.
 - **Al terminar**: foto de portada (cámara o galería, reducida a 1600 px y JPEG 0,82 en el móvil), estrellas opcionales y nota. "Valorar después" registra que se ha cocinado sin estrellas, y el aviso del día siguiente lo pregunta.
 - **Tipos de plato** (`course`): solo los `main` se pueden planificar como comida o cena.
-- **Planificador** (`/planificador?semana=AAAA-MM-DD`): semana de lunes a domingo; el domingo abre la siguiente. Equilibrio con mínimos semanales (legumbre 4, pescado 3; en `src/shared/balance.ts`). Selector de recetas con buscador, filtros y tres órdenes; acciones sobre cada hueco; mover/intercambiar; valorar comidas pasadas. URL del proyecto de Claude en `src/client/config.ts`.
+- **Planificador** (`/planificador?semana=AAAA-MM-DD`): semana de lunes a domingo; el domingo abre la siguiente. El contador de huecos cuenta desde hoy; las semanas terminadas no lo llevan. Equilibrio con mínimos semanales (legumbre 4, pescado 3; en `src/shared/balance.ts`). Selector de recetas con buscador, filtros y tres órdenes; acciones sobre cada hueco; mover/intercambiar; valorar comidas pasadas. URL del proyecto de Claude en `src/client/config.ts`.
 - **Vista de receta** (`/receta/:id`): portada y hoja de Hoy para una receta suelta.
-- **Recetas y Compra**: "Próximamente".
+- **Compra** (`/compra`): ver [Lista de la compra](docs/formato-importacion.md#lista-de-la-compra). Secciones en el orden de la tienda (`src/shared/aisles.ts`); las completas se pliegan. Tocar una línea la marca; deslizar a la izquierda muestra «Sección» y «En casa» (o «Quitar» si se añadió a mano); sin gesto, el botón «Acciones» de cada línea (aparece con el foco de teclado o VoiceOver) hace lo mismo. Caché de la lista y cola de cambios en `localStorage` (`mf.shopping.*`).
+- **Sin conexión**: service worker mínimo ([`src/sw/sw.js`](src/sw/sw.js), generado en el build por [`scripts/vite-sw.ts`](scripts/vite-sw.ts)): navegación primero por red (3 s) con el `index.html` guardado de reserva, `/assets/*` desde caché, `/api` nunca. Solo guarda respuestas 200 del mismo origen, así que las redirecciones al login de Access pasan y no se guardan. Cada build crea una caché nueva y borra la anterior.
+- **Recetas**: "Próximamente".
 - **Importar** (`/importar`): pegar un JSON `recipe@1` o `plan@1` (se detecta solo) y estado técnico.
 
 ## Instalar en el iPhone
@@ -208,6 +220,7 @@ Por defecto, Workers Builds compila cada push a una rama que no sea `main` (por 
 - **Previews desactivados.** Builds de ramas que no son `main` apagados, `"preview_urls": false` en `wrangler.jsonc`, y Access en modo **All traffic** protegería también las previews.
 - **Sin secretos en el repo.** `.dev.vars` y `.env*` están en `.gitignore`; solo se versiona `.dev.vars.example`. El token de Cloudflare vive en Workers Builds, no en GitHub.
 - La `/` y los ficheros estáticos no pasan por el Worker (los sirve la plataforma), así que para ellos la protección es solo Access. No contienen datos: todos los datos salen de `/api`.
+- **Service worker y caché en el móvil.** El service worker nunca guarda `/api` ni redirecciones (las de Access incluidas). La última lista de la compra sí se guarda en `localStorage` del iPhone para abrirla sin red; no sale del dispositivo.
 
 ---
 

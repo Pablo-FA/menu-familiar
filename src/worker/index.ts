@@ -6,6 +6,7 @@ import { photos } from "./photos";
 import { plan } from "./plan";
 import { planner } from "./planner";
 import { recipes } from "./recipes/routes";
+import { shopping } from "./shopping/routes";
 
 const app = new Hono<AppEnv>().basePath("/api");
 
@@ -93,6 +94,7 @@ app.route("/recipes", recipes);
 app.route("/photos", photos);
 app.route("/", plan);
 app.route("/", planner);
+app.route("/", shopping);
 
 app.notFound((c) => c.json({ error: "No encontrado" }, 404));
 

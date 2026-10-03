@@ -1,3 +1,4 @@
+import { importAisle } from "../../shared/aisles";
 import type { RecipeImport } from "../../shared/recipe-format";
 import { slugify } from "../../shared/slug";
 
@@ -11,7 +12,8 @@ const NOW = "strftime('%Y-%m-%dT%H:%M:%fZ', 'now')";
  * Guarda una receta ya validada. Todas las escrituras van en un único db.batch(),
  * que D1 ejecuta como una transacción: o se aplica todo o nada.
  *
- * - Ingredientes nuevos: se crean en el catálogo con su sección y despensa.
+ * - Ingredientes nuevos: se crean en el catálogo con su sección y despensa. Las secciones
+ *   antiguas se convierten con guessAisle (src/shared/aisles.ts).
  * - Ingredientes existentes: manda el catálogo (no se tocan sección ni despensa).
  * - Receta existente: conflicto, salvo con replace. Al reemplazar se actualiza la
  *   fila (no se borra), así se conservan cover_photo_key, archived, created_at y los
@@ -58,7 +60,7 @@ export async function prepareRecipeWrites(
   const lines = recipe.ingredients.map((ing) => {
     const ingredientId = slugify(ing.name);
     if (!catalogEntries.has(ingredientId)) {
-      catalogEntries.set(ingredientId, { name: ing.name, aisle: ing.aisle, pantry: ing.pantry });
+      catalogEntries.set(ingredientId, { name: ing.name, aisle: importAisle(ingredientId, ing.aisle), pantry: ing.pantry });
     }
     return { ...ing, ingredientId };
   });

@@ -46,6 +46,10 @@
   --sheet: linear-gradient(135deg, rgba(244, 245, 248, 0.92), rgba(236, 238, 243, 0.84));
   --group: rgba(255, 255, 255, 0.88);
   --star: var(--accent);
+  /* Compra */
+  --bar-track: rgba(0, 0, 0, 0.08);
+  --swipe: #48484a;
+  --swipe2: #7c7c80;
 }
 
 :root[data-theme="night"] {
@@ -86,6 +90,9 @@
   --sheet: rgba(36, 38, 46, 0.84);
   --group: rgba(255, 255, 255, 0.07);
   --star: var(--accent);
+  --bar-track: rgba(255, 255, 255, 0.14);
+  --swipe: #636366;
+  --swipe2: #48484a;
 }
 
 :root {

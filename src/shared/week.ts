@@ -89,6 +89,28 @@ export function missingLabel(missing: number): string {
   return missing === 1 ? "falta 1" : `faltan ${missing}`;
 }
 
+/**
+ * Textos del Planificador para una semana. Los huecos vacíos se cuentan desde hoy (los
+ * de días pasados ya no se van a planificar); una semana terminada no lleva contador.
+ * `emptyDates`: la fecha de cada franja vacía de la semana (repetida si hay dos).
+ */
+export function weekStatus(monday: string, today: string, emptyDates: string[]): { header: string; bar: string; missing: number | null } {
+  const relation = weekRelation(monday, today);
+  if (addDays(monday, 6) < today) {
+    return {
+      header: [weekRangeLabel(monday), relation].filter(Boolean).join(" · "),
+      bar: relation === "semana pasada" ? "Semana pasada" : "Semana terminada",
+      missing: null,
+    };
+  }
+  const missing = emptyDates.filter((d) => d >= today).length;
+  return {
+    header: [weekRangeLabel(monday), relation, missingLabel(missing)].filter(Boolean).join(" · "),
+    bar: missing === 0 ? "Semana completa" : missing === 1 ? "Falta 1 comida" : `Faltan ${missing} comidas`,
+    missing,
+  };
+}
+
 /** "Martes 6", "Martes 6 de octubre". */
 export function dayTitle(date: string, withMonth = false): string {
   const name = weekdayOf(date);

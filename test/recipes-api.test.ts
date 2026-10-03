@@ -51,8 +51,8 @@ describe("POST /api/recipes/import", () => {
     expect(detail.ingredients[5]?.ingredient.id).toBe("preparado-de-curry-japones-suave");
 
     const catalog = await env.DB.prepare("SELECT id, aisle, pantry FROM ingredients ORDER BY id").all();
-    expect(catalog.results).toContainEqual({ id: "arroz", aisle: "cereales-pan", pantry: 1 });
-    expect(catalog.results).toContainEqual({ id: "pechuga-de-pollo", aisle: "carne-pescado", pantry: 0 });
+    expect(catalog.results).toContainEqual({ id: "arroz", aisle: "arroces", pantry: 1 });
+    expect(catalog.results).toContainEqual({ id: "pechuga-de-pollo", aisle: "carne-legumbres", pantry: 0 });
   });
 
   it("no sobrescribe sección ni despensa de ingredientes que ya están en el catálogo", async () => {
