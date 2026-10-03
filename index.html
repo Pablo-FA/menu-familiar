@@ -12,7 +12,8 @@
     <meta name="apple-mobile-web-app-title" content="Menú familiar" />
     <!-- use-credentials: la app está detrás de Cloudflare Access y el manifest necesita la cookie de sesión. -->
     <link rel="manifest" href="/manifest.webmanifest" crossorigin="use-credentials" />
-    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png" />
+    <link rel="icon" href="/icons/icon.svg" type="image/svg+xml" />
     <link rel="icon" href="/icons/favicon-64.png" type="image/png" sizes="64x64" />
     <title>Menú familiar</title>
     <script>
@@ -35,7 +36,7 @@
   </head>
   <body>
     <div id="root">
-      <div class="splash" aria-hidden="true"><img src="/icons/logo-256.png" alt="" width="96" height="96" /></div>
+      <div class="splash" aria-hidden="true"><img src="/icons/icon.svg" alt="" width="96" height="96" /></div>
     </div>
     <script type="module" src="/src/client/main.tsx"></script>
   </body>
