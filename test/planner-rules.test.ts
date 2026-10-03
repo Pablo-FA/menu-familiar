@@ -13,6 +13,7 @@ import {
   weekMonth,
   weekRangeLabel,
   weekRelation,
+  weekStatus,
   weekToOpen,
 } from "../src/shared/week";
 
@@ -60,6 +61,20 @@ describe("semanas", () => {
     expect([missingLabel(6), missingLabel(1), missingLabel(0)]).toEqual(["faltan 6", "falta 1", "completa"]);
     expect(dayTitle("2026-10-06")).toBe("Martes 6");
     expect(dayTitle("2026-10-07", true)).toBe("Miércoles 7 de octubre");
+  });
+
+  it("contador: huecos vacíos desde hoy; semana terminada sin contador", () => {
+    // Semana 28 sep – 4 oct, hoy jueves 1 oct: los huecos del lunes y martes ya no cuentan.
+    const empties = ["2026-09-28", "2026-09-28", "2026-09-29", "2026-10-01", "2026-10-03"];
+    expect(weekStatus("2026-09-28", "2026-10-01", empties)).toEqual({
+      header: "28 sep – 4 oct · esta semana · faltan 2",
+      bar: "Faltan 2 comidas",
+      missing: 2,
+    });
+    expect(weekStatus("2026-09-28", "2026-10-04", ["2026-10-01"])).toMatchObject({ header: "28 sep – 4 oct · esta semana · completa", bar: "Semana completa" });
+    expect(weekStatus("2026-10-05", "2026-10-04", ["2026-10-05"])).toMatchObject({ bar: "Falta 1 comida", missing: 1 });
+    expect(weekStatus("2026-09-21", "2026-10-01", empties)).toEqual({ header: "21 – 27 sep · semana pasada", bar: "Semana pasada", missing: null });
+    expect(weekStatus("2026-09-07", "2026-10-01", [])).toEqual({ header: "7 – 13 sep", bar: "Semana terminada", missing: null });
   });
 });
 

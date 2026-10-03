@@ -9,7 +9,6 @@ import { SLOTS, type Slot } from "../../shared/recipe-format";
 import {
   dayTitle,
   isoWeekday,
-  missingLabel,
   monthGrid,
   monthName,
   mondayOf,
@@ -17,7 +16,7 @@ import {
   weekDays,
   weekMonth,
   weekRangeLabel,
-  weekRelation,
+  weekStatus,
   weekToOpen,
   weekdayOf,
 } from "../../shared/week";
@@ -116,12 +115,12 @@ export function Planner() {
     return map;
   }, [days, info]);
 
-  const emptyInWeek = [...weekSlots.values()].filter((i) => i.status === "empty").length;
-  const emptyAhead = days.filter((d) => d >= today).flatMap((d) => SLOTS.filter((s) => info(d, s).status === "empty")).length;
+  const emptyDates = days.flatMap((d) => SLOTS.filter((s) => info(d, s).status === "empty").map(() => d));
+  const status = weekStatus(monday, today, emptyDates);
+  const emptyAhead = status.missing ?? 0;
   const balance = weekBalance([...weekSlots.values()].map((i) => ({ status: i.status, protein: i.recipe?.protein ?? null })));
-  const relation = weekRelation(monday, today);
-  const subline = [weekRangeLabel(monday), relation, missingLabel(emptyInWeek)].filter(Boolean).join(" · ");
-  const barStatus = emptyInWeek === 0 ? "Semana completa" : emptyInWeek === 1 ? "Falta 1 comida" : `Faltan ${emptyInWeek} comidas`;
+  const subline = status.header;
+  const barStatus = status.bar;
 
   // ---------- Escrituras (optimistas, con deshacer) ----------
 
