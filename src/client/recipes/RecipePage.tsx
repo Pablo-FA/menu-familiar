@@ -2,10 +2,10 @@ import { Archive, ArchiveRestore, CalendarPlus, Camera, ChevronLeft, ClipboardPa
 import { useEffect, useRef, useState, type RefObject } from "react";
 import type { CookHistoryEntry, RecipeDetail } from "../../shared/api";
 import { PROTEIN_LABEL } from "../../shared/balance";
-import { madridNow, shortDate } from "../../shared/dates";
+import { madridNow } from "../../shared/dates";
 import { formatStars, lastCookedLabel } from "../../shared/picker";
 import { improveRequestText } from "../../shared/recipe-export";
-import { dayTitle } from "../../shared/week";
+import { dayTitle, shortMonth } from "../../shared/week";
 import { api } from "../api";
 import { useToast } from "../components/Toast";
 import { ensureThumb, PhotoError, preparePhoto, uploadCover } from "../cook/photo";
@@ -16,7 +16,7 @@ import { AddToMenuSheet } from "./AddToMenu";
 import { COURSE_LABEL } from "./Gallery";
 import { useRecipePaste } from "./NewRecipe";
 import styles from "./RecipePage.module.css";
-import { invalidateRecipes } from "./store";
+import { invalidateRecipes, useRecipesVersion } from "./store";
 
 const SUITS_UPPER = { lunch: "COMIDA", dinner: "CENA", both: "COMIDA Y CENA" } as const;
 const SLOT_WORD = { lunch: "comida", dinner: "cena" } as const;
@@ -29,6 +29,8 @@ type Load = { state: "loading" } | { state: "error"; message: string } | { state
 export function RecipePage({ id }: { id: string }) {
   const [load, setLoad] = useState<Load>({ state: "loading" });
   const [reload, setReload] = useState(0);
+  // También tras reemplazarla pegando de Claude desde esta misma ficha.
+  const version = useRecipesVersion();
 
   useEffect(() => {
     let cancelled = false;
@@ -44,7 +46,7 @@ export function RecipePage({ id }: { id: string }) {
     return () => {
       cancelled = true;
     };
-  }, [id, reload]);
+  }, [id, reload, version]);
 
   if (load.state === "loading") return <p className={styles.status}>Cargando…</p>;
   if (load.state === "error") return <p className={styles.status}>No se pudo cargar la receta: {load.message}</p>;
@@ -55,8 +57,7 @@ const back = () => (window.history.length > 1 ? window.history.back() : navigate
 
 /** "Sábado 3 oct · comida" */
 function historyLabel(h: CookHistoryEntry): string {
-  const month = shortDate(h.date).split(" ")[2] ?? "";
-  return `${dayTitle(h.date)} ${month} · ${SLOT_WORD[h.slot]}`;
+  return `${dayTitle(h.date)} ${shortMonth(h.date)} · ${SLOT_WORD[h.slot]}`;
 }
 
 function RecipeView({ recipe, onChanged }: { recipe: RecipeDetail; onChanged: () => void }) {

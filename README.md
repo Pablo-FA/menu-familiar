@@ -2,7 +2,7 @@
 
 App web personal para planificar el menú familiar. La usa una sola persona desde iPhone, iPad, Windows y Mac.
 
-**Estado actual: paso 5 (Lista de la compra).** La pestaña **Compra** genera la lista a partir de las comidas planificadas, ordenada por las 19 secciones del súper, con «Revisa en casa» para la despensa, deslizar para cambiar de sección o marcar «En casa», aviso cuando el menú cambia y funcionamiento sin conexión (service worker y cola de cambios en el móvil). Antes: **paso 4 (Planificador)**, con semana o mes, equilibrio de proteínas, mover/intercambiar y planificar con Claude; **paso 3 (modo cocina)** con foto de portada y valoración. Recetas sigue como "Próximamente".
+**Estado actual: paso 6 (Recetas).** La pestaña **Recetas** muestra el recetario en una galería con buscador (por título e ingrediente), filtros y cuatro órdenes. Cada receta tiene ficha con historial de valoraciones y notas, «Añadir al menú», «Cocinar ahora» (sin planificar), cambio de portada, editor completo, «Mejorar con Claude» y archivar. Las recetas nuevas se adaptan con Claude a partir de un enlace y se pegan con vista previa. Antes: **paso 5 (Compra)**, con la lista por secciones del súper, despensa y funcionamiento sin conexión; **paso 4 (Planificador)**; **paso 3 (modo cocina)**.
 
 ## Stack
 
@@ -63,6 +63,7 @@ Definido en [`migrations/0002_modelo_datos.sql`](migrations/0002_modelo_datos.sq
 | `plan_meals` | Menú: un registro por fecha y franja (comida o cena). |
 | `cook_logs` | Cada vez que se cocina una receta: estrellas y nota. Sin registros, la receta es "nueva". |
 | `shopping_lists`, `shopping_items` | Lista de la compra activa (una sola) y sus líneas, con estado, sincronización por campo y `client_id` para las creadas sin conexión (migración `0005`). |
+| `recipes.cover_thumb_key` | Miniatura de la portada para la galería (migración `0006`). |
 | `shopping_ops` | Ids de operaciones de la cola del móvil ya aplicadas (para que reenviar no duplique). |
 
 Las listas que pueden crecer (secciones, proteínas, unidades) se validan en la API ([`src/shared/recipe-format.ts`](src/shared/recipe-format.ts); las secciones, en [`src/shared/aisles.ts`](src/shared/aisles.ts)) y no con `CHECK` en la base de datos, para poder añadir un valor sin migración.
@@ -75,8 +76,12 @@ Toda bajo `/api` y protegida por Access.
 | --- | --- |
 | `GET /api/health` | Estado de D1 (incluye número de recetas), R2 y usuario. |
 | `POST /api/recipes/import` | Importa una receta `recipe@1`. `?replace=true` para reemplazar una existente. |
-| `GET /api/recipes` | Listado ligero (sin archivadas; `?include_archived=true` para incluirlas), con `course`, `suits`, `photo_url`, veces cocinada, `last_cooked` y `avg_stars`. Se amplió este endpoint en vez de crear otro: el recetario es pequeño y así hay un único tipo de resumen. |
-| `GET /api/recipes/:id` | Receta completa con ingredientes y pasos en orden. |
+| `GET /api/recipes` | Listado ligero (sin archivadas; `?include_archived=true` para incluirlas), con `course`, `suits`, `photo_url`, `thumb_url`, veces cocinada, `last_cooked`, `avg_stars`, `ingredient_names`, `has_freezer` y `created_at`. La galería busca y filtra en el cliente: el recetario es pequeño (decenas de recetas) y así funciona al instante y sin red. |
+| `GET /api/recipes/:id` | Receta completa con ingredientes, pasos en orden e historial de cocinados (`history`: fecha, franja, estrellas y nota). |
+| `POST /api/recipes/preview` | Qué pasaría al importar una `recipe@1`, sin escribir nada (resumen, recuentos, ingredientes nuevos, si ya existe y errores). |
+| `PUT /api/recipes/:id` | Sustitución completa desde el editor (`recipe@1` con el mismo id), atómica; conserva foto, archivo y valoraciones. |
+| `PATCH /api/recipes/:id` | `{ archived }`: archivar o recuperar. |
+| `GET /api/recipes/:id/export` | La receta en `recipe@1` (para «Mejorar con Claude»). |
 | `POST /api/plan/import` | Importa un menú `plan@1`: primero las recetas nuevas que traiga y después las comidas, todo en un lote atómico. |
 | `PUT /api/plan/:fecha/:franja` | Planifica una franja (`lunch`/`dinner`): `{ status, recipe_id?, note? }`. |
 | `GET /api/day/:fecha` | `{ date, lunch, dinner }`, cada franja con estado, nota y receta completa (con `photo_url`, `last_stars`, `times_cooked`). |
@@ -84,7 +89,8 @@ Toda bajo `/api` y protegida por Access.
 | `POST /api/rating-prompt/skip` | Pospone el aviso: `{ date, slot }`. |
 | `POST /api/cook-logs` | Registra que se ha cocinado: `{ recipe_id, plan_meal_date?, plan_meal_slot?, cooked_at?, stars?, note? }`. |
 | `PATCH /api/cook-logs/:id` | Completa una valoración: `{ stars?, note? }`. |
-| `POST /api/recipes/:id/photo` | Nueva portada (cuerpo: JPEG, máx. 10 MB). Se guarda en R2 como `recipes/{id}/{timestamp}.jpg` y se borra la anterior. |
+| `POST /api/recipes/:id/photo` | Nueva portada (cuerpo: JPEG, máx. 10 MB). Se guarda en R2 como `recipes/{id}/{timestamp}.jpg` y se borran la anterior y su miniatura. No cambia `updated_at`. |
+| `POST /api/recipes/:id/photo/thumb?cover=` | Miniatura de 480 px de la portada actual (`….thumb.jpg`), para la galería; 409 si la portada ha cambiado. |
 | `GET /api/plan?from&to` | Franjas de un rango (máx. 62 días) con receta resumida y valoración. |
 | `POST /api/plan/batch` | Escribe varias franjas en una transacción (mover, intercambiar, deshacer). |
 | `POST /api/plan/preview` | Qué cambiaría un `plan@1`, sin escribir: añadidos, sustituciones, recetas nuevas, errores. |
@@ -111,10 +117,12 @@ Formatos de importación: [docs/formato-importacion.md](docs/formato-importacion
 - **Al terminar**: foto de portada (cámara o galería, reducida a 1600 px y JPEG 0,82 en el móvil), estrellas opcionales y nota. "Valorar después" registra que se ha cocinado sin estrellas, y el aviso del día siguiente lo pregunta.
 - **Tipos de plato** (`course`): solo los `main` se pueden planificar como comida o cena.
 - **Planificador** (`/planificador?semana=AAAA-MM-DD`): semana de lunes a domingo; el domingo abre la siguiente. El contador de huecos cuenta desde hoy; las semanas terminadas no lo llevan. Equilibrio con mínimos semanales (legumbre 4, pescado 3; en `src/shared/balance.ts`). Selector de recetas con buscador, filtros y tres órdenes; acciones sobre cada hueco; mover/intercambiar; valorar comidas pasadas. URL del proyecto de Claude en `src/client/config.ts`.
-- **Vista de receta** (`/receta/:id`): portada y hoja de Hoy para una receta suelta.
+- **Recetas** (`/recetas`): galería en dos columnas con buscador (título e ingredientes, sin tildes), chips (franja, ≤ 45 min, proteína, sin estrenar, para congelar, panes y guarniciones, archivadas) y orden (mejor valoradas, añadidas hace poco, hace más tiempo, A–Z). Filtros, orden y posición se recuerdan al volver de una ficha. Reglas en [`src/shared/gallery.ts`](src/shared/gallery.ts).
+- **Ficha** (`/receta/:id`): portada, «Añadir al menú» (14 días, con Deshacer), «Cocinar ahora» (`/cocinar/receta/:id`: el cocinado se registra sin comida del plan; progreso en `cocina:receta:{id}`), estadísticas, «Lo que dijisteis», congelar, ingredientes, pasos y adaptación. Menú …: cambiar portada, editar, mejorar con Claude, pegar receta de Claude y archivar.
+- **Editor** (`/receta/:id/editar`): pantalla completa (no una hoja) para que el teclado de iOS no tape el campo con foco. Datos, ingredientes y pasos; valida con el esquema de `recipe@1` y guarda con `PUT /api/recipes/:id`. Para dictar se usa el micrófono del teclado.
+- **Miniaturas**: al subir una portada el móvil sube también una de 480 px; las portadas anteriores la generan al abrir su ficha (migración `0006`).
 - **Compra** (`/compra`): ver [Lista de la compra](docs/formato-importacion.md#lista-de-la-compra). Secciones en el orden de la tienda (`src/shared/aisles.ts`); las completas se pliegan. Tocar una línea la marca; deslizar a la izquierda muestra «Sección» y «En casa» (o «Quitar» si se añadió a mano); sin gesto, el botón «Acciones» de cada línea (aparece con el foco de teclado o VoiceOver) hace lo mismo. Caché de la lista y cola de cambios en `localStorage` (`mf.shopping.*`).
 - **Sin conexión**: service worker mínimo ([`src/sw/sw.js`](src/sw/sw.js), generado en el build por [`scripts/vite-sw.ts`](scripts/vite-sw.ts)): navegación primero por red (3 s) con el `index.html` guardado de reserva, `/assets/*` desde caché, `/api` nunca. Solo guarda respuestas 200 del mismo origen, así que las redirecciones al login de Access pasan y no se guardan. Cada build crea una caché nueva y borra la anterior.
-- **Recetas**: "Próximamente".
 - **Importar** (`/importar`): pegar un JSON `recipe@1` o `plan@1` (se detecta solo) y estado técnico.
 
 ## Instalar en el iPhone
@@ -220,6 +228,7 @@ Por defecto, Workers Builds compila cada push a una rama que no sea `main` (por 
 - **Previews desactivados.** Builds de ramas que no son `main` apagados, `"preview_urls": false` en `wrangler.jsonc`, y Access en modo **All traffic** protegería también las previews.
 - **Sin secretos en el repo.** `.dev.vars` y `.env*` están en `.gitignore`; solo se versiona `.dev.vars.example`. El token de Cloudflare vive en Workers Builds, no en GitHub.
 - La `/` y los ficheros estáticos no pasan por el Worker (los sirve la plataforma), así que para ellos la protección es solo Access. No contienen datos: todos los datos salen de `/api`.
+- **Sesión caducada.** El cliente pide `/api` con `redirect: "manual"`: la redirección al login de Access (o un 401 del Worker) se reconoce como «sesión caducada» y no como falta de red. En Compra sale «Sesión caducada · Toca para entrar», que recarga la página para que Access pida el código; la cola de cambios del móvil se conserva y se envía después.
 - **Service worker y caché en el móvil.** El service worker nunca guarda `/api` ni redirecciones (las de Access incluidas). La última lista de la compra sí se guarda en `localStorage` del iPhone para abrirla sin red; no sale del dispositivo.
 
 ---

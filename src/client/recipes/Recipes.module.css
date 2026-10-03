@@ -682,6 +682,14 @@
   max-width: 100%;
   font-size: 14px;
   font-weight: 600;
+}
+
+.planSlotText svg {
+  flex: none;
+}
+
+.ellipsis {
+  min-width: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

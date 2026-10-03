@@ -95,6 +95,52 @@ No se admiten campos que no estén en esta tabla: una errata (`"minutos"`) da er
 - Todo se escribe en un único lote atómico de D1: o se guarda la receta entera o nada.
 - Respuesta: **201** si es nueva, **200** si se ha reemplazado.
 
+### Vista previa sin escribir: `POST /api/recipes/preview`
+
+Mismo cuerpo que importar. No escribe nada y responde siempre **200** con:
+
+- `summary`: id, título, minutos, proteína, franja (`suits`), tipo (`course`), calorías, `adaptation_notes` y la portada si la receta ya existe (o `null` si hay errores);
+- `ingredients_count`, `steps_count` y `timers_count`;
+- `new_ingredients`: los que se crearían en el catálogo, con la sección que tendrán (ya convertida con `guessAisle` si traían una antigua);
+- `exists`: si ya hay una receta con ese `id` (entonces importar exige `?replace=true`);
+- `errors`: los mismos errores de validación que daría importar.
+
+### Receta nueva desde la app: «Adaptar una receta de internet» → «Pegar receta de Claude»
+
+En **Recetas → +**:
+
+1. **Adaptar una receta de internet**: se pega el enlace y «Abrir en Claude» copia este texto y abre el proyecto de Claude:
+
+   ```
+   Adapta esta receta para Menú familiar y devuélvemela en formato menu-familiar/recipe@1 dentro de un bloque ```json: https://…
+   ```
+
+2. **Pegar receta de Claude**: cuando Claude responde, se copia su respuesta y se toca esta tarjeta. La app lee el portapapeles (o abre un cuadro para pegarlo a mano) y busca la primera `recipe@1`: vale el JSON solo, un bloque ```json o el JSON con texto alrededor.
+3. **Receta de Claude**: vista previa (`POST /api/recipes/preview`) con el resumen, los recuentos, los ingredientes nuevos con su sección, la adaptación y los errores. Si ya existe una receta con ese `id`, sale «Ya tienes esta receta» y hay que activar «Reemplazar» (se conservan la foto y las valoraciones).
+4. **Añadir al recetario** (o **Reemplazar receta**) la importa y abre su ficha.
+
+`/importar` sigue disponible como herramienta técnica.
+
+### Mejorar con Claude (desde la ficha)
+
+En la ficha de una receta, **… → Mejorar con Claude** copia este texto y abre el proyecto:
+
+````
+Quiero cambiar esta receta de Menú familiar: [escribe o dicta aquí el cambio]. Devuélvemela completa en formato menu-familiar/recipe@1 con el mismo id, dentro de un bloque ```json.
+
+```json
+{ …la receta actual en recipe@1 (GET /api/recipes/:id/export)… }
+```
+````
+
+Se cambia el hueco entre corchetes por lo que se quiera (también dictándolo en la app de Claude). La vuelta es la misma que para una receta nueva: **Pegar receta de Claude** (en la galería o en el menú … de la ficha). Como el `id` es el mismo, sale «Ya tienes esta receta» y se reemplaza con el interruptor.
+
+La exportación da exactamente la receta guardada: importarla con `?replace=true` deja la receta igual (los nombres de ingrediente son los del catálogo y `uses` va con esos nombres).
+
+### Editor de la app
+
+**… → Editar receta** abre el editor (datos, ingredientes y pasos). Guarda con `PUT /api/recipes/:id`, que recibe la receta completa en `recipe@1` (con el mismo `id`) y aplica la misma validación y el mismo lote atómico que importar con `?replace=true`: se conservan la portada, el estado de archivo y las valoraciones; los ingredientes nuevos se crean en el catálogo con su sección y despensa.
+
 ### Secciones del súper
 
 En el orden en que se recorre la tienda (la lista de la compra sigue este orden). La única fuente de verdad es [`src/shared/aisles.ts`](../src/shared/aisles.ts): para cambiar el orden, se cambia ahí.
@@ -231,7 +277,7 @@ No tiene formato de importación: se genera en la app (pestaña **Compra**) a pa
 - *Revisar en casa* (`review`): de despensa con cantidad (p. ej. 300 g de arroz): «¿Queda suficiente?» → Hay / Comprar.
 - *En casa* (`home`): de despensa sin cantidad (sal, aceite), el agua, y lo que se marque como «En casa».
 
-Si el menú cambia después de crear la lista, la app lo avisa y «Actualizar la lista» añade lo nuevo, recalcula cantidades (sin tocar lo que ya decidiste) y quita lo que ya no hace falta, salvo lo comprado, lo añadido a mano y lo que se pasó de la lista anterior. Mover una línea de sección se recuerda en el catálogo para las próximas listas.
+Si el menú cambia después de crear la lista (una comida nueva, quitada o con otra receta, o una receta de la lista editada: «Lentejas caseras: la receta ha cambiado»), la app lo avisa y «Actualizar la lista» añade lo nuevo, recalcula cantidades (sin tocar lo que ya decidiste) y quita lo que ya no hace falta, salvo lo comprado, lo añadido a mano y lo que se pasó de la lista anterior. Mover una línea de sección se recuerda en el catálogo para las próximas listas.
 
 **Sin conexión.** La app se abre sin red (service worker) y pinta la última lista guardada en el móvil. Lo que se marca se aplica al momento y se guarda en una cola en el móvil, que se envía en orden al recuperar la conexión; si dos cambios chocan, gana el más reciente por línea y por campo. Crear o actualizar la lista necesita conexión.
 

@@ -1,5 +1,23 @@
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, useSyncExternalStore, type ReactNode } from "react";
 import styles from "./Dialog.module.css";
+
+// Diálogos abiertos, del más antiguo al más reciente. Lo que tenga que verse y tocarse
+// por encima (el aviso con «Deshacer») se pinta dentro del último: fuera de un <dialog>
+// modal todo es inerte.
+let openDialogs: HTMLDialogElement[] = [];
+const listeners = new Set<() => void>();
+const notify = () => listeners.forEach((l) => l());
+
+/** El diálogo modal abierto más reciente, o null. */
+export function useTopDialog(): HTMLDialogElement | null {
+  return useSyncExternalStore(
+    (l) => {
+      listeners.add(l);
+      return () => listeners.delete(l);
+    },
+    () => openDialogs[openDialogs.length - 1] ?? null,
+  );
+}
 
 /**
  * <dialog> modal nativo: foco atrapado, Escape y capa superior. onClose se llama al
@@ -10,7 +28,15 @@ export function Dialog({ label, onClose, children }: { label: string; onClose: (
   useEffect(() => {
     const dialog = ref.current;
     if (dialog && !dialog.open) dialog.showModal();
-    return () => dialog?.close();
+    if (dialog) {
+      openDialogs = [...openDialogs, dialog];
+      notify();
+    }
+    return () => {
+      dialog?.close();
+      openDialogs = openDialogs.filter((d) => d !== dialog);
+      notify();
+    };
   }, []);
   return (
     <dialog

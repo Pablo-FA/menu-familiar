@@ -666,3 +666,7 @@
   flex-direction: column;
   gap: 8px;
 }
+
+.stepCard > .chip {
+  align-self: flex-start;
+}

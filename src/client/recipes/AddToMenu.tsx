@@ -137,7 +137,7 @@ export function AddToMenuSheet({
                     <span className={styles.planSlotLabel}>{SLOT_UPPER[slot]}</span>
                     <span className={styles.planSlotText}>
                       {mine && <Check size={14} strokeWidth={3} aria-hidden="true" />}
-                      {mine ? recipe.title : content}
+                      <span className={styles.ellipsis}>{mine ? recipe.title : content}</span>
                     </span>
                   </button>
                 );

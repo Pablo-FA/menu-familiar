@@ -48,3 +48,16 @@ export function useRecipes(): { recipes: RecipeSummary[] | null; error: boolean 
 
   return { recipes, error };
 }
+
+/** Cambia cada vez que se llama a invalidateRecipes (para recargar una ficha abierta). */
+export function useRecipesVersion(): number {
+  const [v, setV] = useState(version);
+  useEffect(() => {
+    const l = () => setV(version);
+    listeners.add(l);
+    return () => {
+      listeners.delete(l);
+    };
+  }, []);
+  return v;
+}
