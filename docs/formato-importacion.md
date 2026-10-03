@@ -29,9 +29,9 @@ Ejemplo completo: [`ejemplos/katsukare.json`](ejemplos/katsukare.json).
   "freezer_note": "La salsa se congela bien; se puede hacer doble ración de curry.",
   "tags": ["japonesa", "curry", "empanado"],
   "ingredients": [
-    { "text": "2 zanahorias", "name": "zanahoria", "quantity": 2, "unit": "ud", "estimated": true, "aisle": "verdura-fruta", "pantry": false },
+    { "text": "2 zanahorias", "name": "zanahoria", "quantity": 2, "unit": "ud", "estimated": true, "aisle": "fruta-verdura", "pantry": false },
     { "text": "600 ml de agua", "name": "agua", "quantity": 600, "unit": "ml", "estimated": false, "aisle": "otros", "pantry": true },
-    { "text": "Sal", "name": "sal", "quantity": null, "unit": null, "estimated": true, "aisle": "despensa", "pantry": true }
+    { "text": "Sal", "name": "sal", "quantity": null, "unit": null, "estimated": true, "aisle": "otros", "pantry": true }
   ],
   "steps": [
     { "text": "Pica fina la cebolla y la zanahoria; trocea las setas en trozos grandes." },
@@ -71,7 +71,7 @@ No se admiten campos que no estén en esta tabla: una errata (`"minutos"`) da er
 | `quantity` | número > 0 o `null` | no (`null`) | Para sumar en la lista de la compra. |
 | `unit` | lista o `null` | no (`null`) | `g` · `kg` · `ml` · `l` · `ud` · `cda` · `cdta` · `pizca`. Cantidad y unidad van juntas: o las dos o ninguna. |
 | `estimated` | booleano | no (`false`) | `true` si la cantidad la ha estimado Claude porque la fuente no la daba. |
-| `aisle` | lista | sí | Sección del súper: `verdura-fruta` · `carne-pescado` · `huevos-lacteos` · `conservas` · `cereales-pan` · `despensa` · `congelados` · `otros`. |
+| `aisle` | lista | sí | Sección del súper (ver [Secciones del súper](#secciones-del-súper)). |
 | `pantry` | booleano | no (`false`) | Despensa fija (sal, aceite, arroz…): algo que normalmente hay en casa. |
 
 `aisle` y `pantry` solo se usan si el ingrediente **no existe todavía** en el catálogo. Si ya existe, manda el catálogo y se ignoran.
@@ -90,10 +90,38 @@ No se admiten campos que no estén en esta tabla: una errata (`"minutos"`) da er
 `POST /api/recipes/import` (y la herramienta técnica de la página principal):
 
 - Valida el JSON. Si algo falla responde **400** con la lista de errores, cada uno con la ruta del campo (`ingredients[3].unit`) y un mensaje en español. No escribe nada.
-- Ingredientes cuyo slug no está en el catálogo: se crean con su `name`, `aisle` y `pantry`. La respuesta los enumera en `created_ingredients`.
+- Ingredientes cuyo slug no está en el catálogo: se crean con su `name`, `aisle` y `pantry` (las secciones antiguas se convierten; ver abajo). La respuesta los enumera en `created_ingredients`.
 - Si ya existe una receta con ese `id`: **409**, salvo con `?replace=true`. Al reemplazar se sustituyen los datos, los ingredientes y los pasos, pero se conservan la foto de portada, el estado de archivo y los registros de cocinado (valoraciones).
 - Todo se escribe en un único lote atómico de D1: o se guarda la receta entera o nada.
 - Respuesta: **201** si es nueva, **200** si se ha reemplazado.
+
+### Secciones del súper
+
+En el orden en que se recorre la tienda (la lista de la compra sigue este orden). La única fuente de verdad es [`src/shared/aisles.ts`](../src/shared/aisles.ts): para cambiar el orden, se cambia ahí.
+
+| # | `aisle` | Sección |
+| --- | --- | --- |
+| 1 | `pan` | Pan |
+| 2 | `yogures` | Yogures |
+| 3 | `desayuno` | Cereales, galletas y café |
+| 4 | `frutos-secos` | Frutos secos |
+| 5 | `cosmetica` | Belleza y cosmética |
+| 6 | `limpieza` | Limpieza |
+| 7 | `bebidas` | Bebidas |
+| 8 | `harinas-huevos` | Harinas y huevos |
+| 9 | `conservas` | Conservas |
+| 10 | `precocinados` | Precocinados |
+| 11 | `arroces` | Arroces |
+| 12 | `embutidos-quesos` | Embutidos, quesos y salchichas |
+| 13 | `carne-legumbres` | Carne, legumbres y especias |
+| 14 | `fruta-verdura` | Fruta y verdura |
+| 15 | `congelados` | Congelados |
+| 16 | `pescado` | Pescado y marisco |
+| 17 | `pasta-salsas` | Pasta, tomate frito y salsas |
+| 18 | `leche` | Leche |
+| 19 | `otros` | Otros |
+
+**Valores antiguos.** Se siguen aceptando las 8 secciones de la primera versión: `verdura-fruta`, `carne-pescado`, `huevos-lacteos`, `conservas`, `cereales-pan`, `despensa`, `congelados` y `otros`. Al crear un ingrediente nuevo con una de las que solo existían antes (o con `otros`), la app deduce la sección con `guessAisle`: reglas por palabras clave sobre el slug del ingrediente (gana la primera que coincide; p. ej. `huevo` → Harinas y huevos, `garbanzo-cocido` → Conservas, `comino` → Carne, legumbres y especias). Si ninguna regla coincide, usa la equivalente: `verdura-fruta` → `fruta-verdura`, `carne-pescado` → `carne-legumbres`, `huevos-lacteos` → `leche`, `cereales-pan` → `pan`, `despensa` → `otros`. Si el ingrediente ya está en el catálogo, manda el catálogo. La migración `0005` re-seccionó el catálogo existente con las mismas reglas.
 
 ### Instrucciones para Claude al generar el JSON
 
@@ -104,6 +132,7 @@ No se admiten campos que no estén en esta tabla: una errata (`"minutos"`) da er
 - Cantidades para 4 raciones (2 adultos y 2 niñas); no hay escalado en la app.
 - Marca `"estimated": true` en cada cantidad que no venga de la fuente, y `"kcal_estimated": true` si calculas las calorías.
 - Explica en `adaptation_notes` qué has adaptado y qué has estimado.
+- Usa las 19 secciones nuevas en `aisle`.
 - Usa nombres de ingrediente genéricos y en singular para que coincidan con el catálogo (`"huevo"`, no `"huevos camperos L"`; el detalle va en `text`).
 - Si no hay cantidad razonable (sal, aceite para freír), `quantity` y `unit` a `null`.
 - Devuelve solo el JSON, sin comentarios (JSON no admite comentarios).
@@ -187,3 +216,22 @@ Una comida puede ser solo `{ "date": "…", "slot": "dinner", "status": "away" }
 - Reutiliza los `id` de recetas que ya estén en la app cuando repitas plato; incluye en `recipes` solo las nuevas.
 - Marca con `"status": "away"` las comidas fuera de casa, en vez de omitirlas, para que la app no las muestre como vacías.
 - Devuelve solo el JSON.
+
+---
+
+## Lista de la compra
+
+No tiene formato de importación: se genera en la app (pestaña **Compra**) a partir del menú. Reglas en [`src/shared/shopping.ts`](../src/shared/shopping.ts).
+
+**Generación.** Se eligen unas fechas y, de las comidas planificadas con receta en ese rango, se pueden desmarcar las que no hagan falta (lo congelado). No se escala: las recetas ya son para 4. Las cantidades se agrupan por ingrediente y se suman por familia de unidad: g y kg en gramos (desde 1000, en kg con un decimal: "1,5 kg"), ml y l igual, `ud` redondeado hacia arriba, y `cda`, `cdta` y `pizca` cada una por su lado. Las familias que no se pueden sumar se unen con " + " ("2 ud + 200 g"); las cantidades `null` no suman; "≈" delante si alguna parte es estimada. Solo hay una lista activa: crear otra sustituye a la anterior, y se puede pasar a la nueva lo que quedó sin comprar.
+
+**Estados de cada línea.**
+
+- *Comprar* (`buy`): ingredientes que no son de despensa (`pantry: false`) y lo añadido a mano. Se marcan al echarlos al carro.
+- *Revisar en casa* (`review`): de despensa con cantidad (p. ej. 300 g de arroz): «¿Queda suficiente?» → Hay / Comprar.
+- *En casa* (`home`): de despensa sin cantidad (sal, aceite), el agua, y lo que se marque como «En casa».
+
+Si el menú cambia después de crear la lista, la app lo avisa y «Actualizar la lista» añade lo nuevo, recalcula cantidades (sin tocar lo que ya decidiste) y quita lo que ya no hace falta, salvo lo comprado, lo añadido a mano y lo que se pasó de la lista anterior. Mover una línea de sección se recuerda en el catálogo para las próximas listas.
+
+**Sin conexión.** La app se abre sin red (service worker) y pinta la última lista guardada en el móvil. Lo que se marca se aplica al momento y se guarda en una cola en el móvil, que se envía en orden al recuperar la conexión; si dos cambios chocan, gana el más reciente por línea y por campo. Crear o actualizar la lista necesita conexión.
+

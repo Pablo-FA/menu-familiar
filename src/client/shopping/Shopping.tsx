@@ -167,7 +167,15 @@ export function Shopping() {
         res.removed > 0 ? plural(res.removed, "quitado", "quitados") : null,
         res.changed > 0 ? plural(res.changed, "cantidad cambiada", "cantidades cambiadas") : null,
       ].filter(Boolean);
-      toast({ message: parts.length > 0 ? `Lista actualizada · ${parts.join(", ")}` : "La lista ya está al día" });
+      const hadChanges = list?.changes != null;
+      toast({
+        message:
+          parts.length > 0
+            ? `Lista actualizada · ${parts.join(", ")}`
+            : hadChanges
+              ? "Lista actualizada · no cambia lo que hay que comprar"
+              : "La lista ya está al día",
+      });
     } catch {
       toast({ message: "No se ha podido actualizar la lista" });
     } finally {
