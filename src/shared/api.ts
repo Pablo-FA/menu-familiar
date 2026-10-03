@@ -154,3 +154,60 @@ export interface PlanPreviewResponse {
   ignored_existing_recipes: { id: string; title: string }[];
   errors: { field: string; message: string }[];
 }
+
+// ---------- Lista de la compra ----------
+
+/** Línea de la lista. id es null solo en el móvil, mientras no se ha sincronizado una línea creada sin conexión. */
+export interface ShoppingItem {
+  id: number | null;
+  client_id: string | null;
+  ingredient_id: string | null;
+  name: string;
+  quantity_text: string | null;
+  aisle: string;
+  pantry: boolean;
+  status: "review" | "buy" | "home";
+  bought: boolean;
+  manual: boolean;
+  carried: boolean;
+}
+
+/** GET /api/shopping (o null si no hay lista). */
+export interface ShoppingListResponse {
+  id: number;
+  from_date: string;
+  to_date: string;
+  meals_count: number;
+  items: ShoppingItem[];
+  /** Cambios del menú desde que se hizo la lista: cuántos y el primero contado en una frase. */
+  changes: { count: number; first: string } | null;
+}
+
+export interface ShoppingCandidate {
+  date: string;
+  slot: Slot;
+  recipe_id: string;
+  title: string;
+}
+
+/** GET /api/shopping/candidates?from&to */
+export interface ShoppingCandidatesResponse {
+  meals: ShoppingCandidate[];
+  /** Líneas por comprar de la lista actual (para «Pasar lo que no compraste»). */
+  pending: number;
+}
+
+/** POST /api/shopping/update */
+export interface ShoppingUpdateResponse {
+  list: ShoppingListResponse;
+  added: number;
+  removed: number;
+  changed: number;
+}
+
+/** GET /api/ingredients?q= */
+export interface IngredientSuggestion {
+  id: string;
+  name: string;
+  aisle: string;
+}
