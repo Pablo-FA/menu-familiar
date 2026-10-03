@@ -8,15 +8,21 @@ import type { Plugin } from "vite";
  * build (hash de index.html y los assets) y la lista de assets a guardar al instalar.
  * Una versión nueva crea una caché nueva y borra la anterior.
  */
+const PUBLIC_PRECACHE = ["/icons/logo-256.png", "/icons/favicon-64.png"];
+
 export function serviceWorker(): Plugin {
   return {
     name: "menu-familiar-sw",
     applyToEnvironment: (environment) => environment.name === "client",
     generateBundle(_options, bundle) {
-      const assets = Object.keys(bundle)
-        .filter((file) => file.startsWith("assets/"))
-        .sort()
-        .map((file) => `/${file}`);
+      const assets = [
+        ...Object.keys(bundle)
+          .filter((file) => file.startsWith("assets/"))
+          .sort()
+          .map((file) => `/${file}`),
+        // De public/: el logo de la pantalla de arranque, para que salga también sin red.
+        ...PUBLIC_PRECACHE,
+      ];
       const html = bundle["index.html"];
       const hash = createHash("sha256").update(assets.join("\n"));
       if (html?.type === "asset") hash.update(html.source);
