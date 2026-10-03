@@ -1,21 +1,12 @@
 import { z } from "zod";
+import { ACCEPTED_AISLES } from "./aisles";
 import { SLUG_PATTERN, slugify } from "./slug";
 
 // Mensajes de error de zod en español.
 z.config(z.locales.es());
 
-/** Secciones del súper. Añadir una aquí no requiere migración. */
-export const AISLES = [
-  "verdura-fruta",
-  "carne-pescado",
-  "huevos-lacteos",
-  "conservas",
-  "cereales-pan",
-  "despensa",
-  "congelados",
-  "otros",
-] as const;
-export type Aisle = (typeof AISLES)[number];
+/** Secciones del súper: ver src/shared/aisles.ts (19 actuales + 8 antiguas aceptadas). */
+export { ACCEPTED_AISLES, AISLES, type Aisle } from "./aisles";
 
 export const PROTEINS = ["verdura", "legumbre", "pescado", "carne", "ave", "huevo"] as const;
 export type Protein = (typeof PROTEINS)[number];
@@ -54,7 +45,7 @@ export const importIngredientSchema = z
     quantity: z.number().positive().nullish().default(null),
     unit: z.enum(UNITS).nullish().default(null),
     estimated: z.boolean().default(false),
-    aisle: z.enum(AISLES),
+    aisle: z.enum(ACCEPTED_AISLES),
     pantry: z.boolean().default(false),
   })
   .superRefine((ing, ctx) => {
