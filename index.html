@@ -13,7 +13,7 @@
     <!-- use-credentials: la app está detrás de Cloudflare Access y el manifest necesita la cookie de sesión. -->
     <link rel="manifest" href="/manifest.webmanifest" crossorigin="use-credentials" />
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
-    <link rel="icon" href="/icons/icon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/icons/favicon-64.png" type="image/png" sizes="64x64" />
     <title>Menú familiar</title>
     <script>
       // Tema antes del primer pintado (evita un destello del tema equivocado). La regla
@@ -26,9 +26,17 @@
         document.querySelector('meta[name="theme-color"]').setAttribute("content", night ? "#0A0E14" : "#DDE0E4");
       })();
     </script>
+    <style>
+      /* Pantalla de arranque: el logo mientras carga la app (React la sustituye al pintar). */
+      .splash { position: fixed; inset: 0; display: grid; place-items: center; background: #dde0e4; }
+      :root[data-theme="night"] .splash { background: #0a0e14; }
+      .splash img { width: 96px; height: 96px; border-radius: 22px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18); }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div class="splash" aria-hidden="true"><img src="/icons/logo-256.png" alt="" width="96" height="96" /></div>
+    </div>
     <script type="module" src="/src/client/main.tsx"></script>
   </body>
 </html>
