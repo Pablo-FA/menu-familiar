@@ -12,6 +12,7 @@
   "include": [
     "vite.config.ts",
     "vitest.config.ts",
-    "eslint.config.js"
+    "eslint.config.js",
+    "scripts/*.ts"
   ]
 }
