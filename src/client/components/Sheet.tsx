@@ -1,4 +1,4 @@
-import { useRef, type CSSProperties, type PointerEvent, type ReactNode } from "react";
+import { useEffect, useRef, type CSSProperties, type PointerEvent, type ReactNode, type RefObject } from "react";
 import { Dialog } from "./Dialog";
 import styles from "./Sheet.module.css";
 
@@ -26,6 +26,7 @@ export function Sheet({
 }) {
   const sheetRef = useRef<HTMLDivElement>(null);
   const drag = useRef<{ y: number; dy: number } | null>(null);
+  useKeyboardInset(sheetRef);
 
   function onPointerDown(e: PointerEvent) {
     if ((e.target as HTMLElement).closest("button, input, textarea, a")) return;
@@ -71,4 +72,37 @@ export function Sheet({
       </div>
     </Dialog>
   );
+}
+
+/**
+ * Con el teclado abierto, iOS no encoge la ventana: la hoja (fija abajo) quedaría debajo
+ * del teclado. Se sube la hoja lo que ocupa el teclado (visualViewport) y, al enfocar un
+ * campo, se desplaza hasta él dentro de la hoja.
+ */
+function useKeyboardInset(sheetRef: RefObject<HTMLDivElement | null>) {
+  useEffect(() => {
+    const vv = window.visualViewport;
+    const sheet = sheetRef.current;
+    if (!vv || !sheet) return;
+    const update = () => {
+      const inset = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+      sheet.style.bottom = inset > 0 ? `${inset}px` : "";
+      sheet.style.maxHeight = inset > 0 ? `${vv.height - 12}px` : "";
+    };
+    const onFocus = (e: FocusEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.matches("input, textarea")) return;
+      // Tras abrirse el teclado (y ajustarse la hoja), el campo a la vista.
+      window.setTimeout(() => target.scrollIntoView({ block: "nearest" }), 300);
+    };
+    update();
+    vv.addEventListener("resize", update);
+    vv.addEventListener("scroll", update);
+    sheet.addEventListener("focusin", onFocus);
+    return () => {
+      vv.removeEventListener("resize", update);
+      vv.removeEventListener("scroll", update);
+      sheet.removeEventListener("focusin", onFocus);
+    };
+  }, [sheetRef]);
 }

@@ -50,6 +50,10 @@
   --bar-track: rgba(0, 0, 0, 0.08);
   --swipe: #48484a;
   --swipe2: #7c7c80;
+  /* Recetas */
+  --ph: linear-gradient(150deg, #f1f2f5, #dcdfe5);
+  --ph-fg: rgba(29, 29, 31, 0.38);
+  --star-off: #c7c7cc;
 }
 
 :root[data-theme="night"] {
@@ -93,6 +97,9 @@
   --bar-track: rgba(255, 255, 255, 0.14);
   --swipe: #636366;
   --swipe2: #48484a;
+  --ph: radial-gradient(120% 90% at 20% 10%, #3a3f48, #23272e);
+  --ph-fg: rgba(255, 255, 255, 0.45);
+  --star-off: #48484a;
 }
 
 :root {

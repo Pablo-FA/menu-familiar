@@ -1,4 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
+import { useTopDialog } from "./Dialog";
 import styles from "./Toast.module.css";
 
 export interface ToastOptions {
@@ -35,28 +37,34 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     };
   }, [toast]);
 
+  // Con una hoja abierta, dentro de ella (si no, quedaría detrás y no se podría tocar).
+  const host = useTopDialog();
+  const region = (
+    <div role="status" aria-live="polite">
+      {toast && (
+        <div key={toast.id} className={`${styles.toast} glass-bar`}>
+          <span className={styles.text}>{toast.message}</span>
+          {toast.action && (
+            <button
+              type="button"
+              className={styles.action}
+              onClick={() => {
+                toast.action?.onClick();
+                setToast(null);
+              }}
+            >
+              {toast.action.label}
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <ToastContext.Provider value={show}>
       {children}
-      <div role="status" aria-live="polite">
-        {toast && (
-          <div key={toast.id} className={`${styles.toast} glass-bar`}>
-            <span className={styles.text}>{toast.message}</span>
-            {toast.action && (
-              <button
-                type="button"
-                className={styles.action}
-                onClick={() => {
-                  toast.action?.onClick();
-                  setToast(null);
-                }}
-              >
-                {toast.action.label}
-              </button>
-            )}
-          </div>
-        )}
-      </div>
+      {host ? createPortal(region, host) : region}
     </ToastContext.Provider>
   );
 }

@@ -1,3 +1,5 @@
+import type { PhotoResponse } from "../../shared/api";
+
 /** Lado largo máximo y calidad de la portada. */
 export const PHOTO_MAX_SIDE = 1600;
 export const PHOTO_QUALITY = 0.82;
@@ -5,7 +7,10 @@ export const PHOTO_MAX_BYTES = 10 * 1024 * 1024;
 
 export class PhotoError extends Error {}
 
-async function decode(file: File): Promise<{ source: CanvasImageSource; width: number; height: number; close: () => void }> {
+/** Lado largo de la miniatura de la galería. */
+export const THUMB_MAX_SIDE = 480;
+
+async function decode(file: Blob): Promise<{ source: CanvasImageSource; width: number; height: number; close: () => void }> {
   // createImageBitmap aplica la orientación EXIF (las fotos del iPhone vienen giradas).
   if ("createImageBitmap" in window) {
     try {
@@ -28,11 +33,11 @@ async function decode(file: File): Promise<{ source: CanvasImageSource; width: n
   return { source: img, width: img.naturalWidth, height: img.naturalHeight, close: () => URL.revokeObjectURL(url) };
 }
 
-/** Redimensiona a 1600 px en el lado largo y convierte a JPEG (calidad 0,82). */
-export async function preparePhoto(file: File): Promise<Blob> {
+/** Redimensiona (1600 px en el lado largo por defecto) y convierte a JPEG (calidad 0,82). */
+export async function preparePhoto(file: Blob, maxSide = PHOTO_MAX_SIDE): Promise<Blob> {
   const image = await decode(file);
   try {
-    const scale = Math.min(1, PHOTO_MAX_SIDE / Math.max(image.width, image.height));
+    const scale = Math.min(1, maxSide / Math.max(image.width, image.height));
     const width = Math.max(1, Math.round(image.width * scale));
     const height = Math.max(1, Math.round(image.height * scale));
     const canvas = document.createElement("canvas");
@@ -47,6 +52,45 @@ export async function preparePhoto(file: File): Promise<Blob> {
     return blob;
   } finally {
     image.close();
+  }
+}
+
+async function postJpeg(path: string, blob: Blob): Promise<Response> {
+  const res = await fetch(`/api${path}`, {
+    method: "POST",
+    credentials: "same-origin",
+    headers: { "Content-Type": "image/jpeg" },
+    body: blob,
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res;
+}
+
+/**
+ * Sube una portada ya preparada y, después, su miniatura para la galería. Si la
+ * miniatura falla no pasa nada: la galería usa la foto completa y se reintenta al abrir
+ * la ficha (ensureThumb).
+ */
+export async function uploadCover(recipeId: string, photo: Blob): Promise<PhotoResponse> {
+  const res = (await (await postJpeg(`/recipes/${encodeURIComponent(recipeId)}/photo`, photo)).json()) as PhotoResponse;
+  await uploadThumb(recipeId, res.cover_photo_key, photo).catch(() => undefined);
+  return res;
+}
+
+async function uploadThumb(recipeId: string, coverKey: string, source: Blob) {
+  const thumb = await preparePhoto(source, THUMB_MAX_SIDE);
+  await postJpeg(`/recipes/${encodeURIComponent(recipeId)}/photo/thumb?cover=${encodeURIComponent(coverKey)}`, thumb);
+}
+
+/** Para portadas anteriores a las miniaturas: la genera a partir de la foto completa. */
+export async function ensureThumb(recipe: { id: string; cover_photo_key: string | null; photo_url: string | null; has_thumb: boolean }) {
+  if (recipe.has_thumb || !recipe.cover_photo_key || !recipe.photo_url) return;
+  try {
+    const res = await fetch(recipe.photo_url, { credentials: "same-origin" });
+    if (!res.ok) return;
+    await uploadThumb(recipe.id, recipe.cover_photo_key, await res.blob());
+  } catch {
+    // Se intentará la próxima vez.
   }
 }
 

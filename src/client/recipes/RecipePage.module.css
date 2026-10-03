@@ -1,0 +1,466 @@
+.page {
+  position: relative;
+  max-width: var(--page-max);
+  margin: 0 auto;
+  color: var(--fg);
+}
+
+.status {
+  padding: calc(var(--safe-top) + 24px) 20px;
+  color: var(--fg2);
+}
+
+.hiddenInput {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* ---------- Portada ---------- */
+
+.cover {
+  position: relative;
+  height: 500px;
+  overflow: hidden;
+  background: #000;
+  color: #fff;
+}
+
+.photo {
+  position: absolute;
+  inset: 0;
+  will-change: transform;
+}
+
+.photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.placeholder {
+  width: 100%;
+  height: 100%;
+  background: var(--ph);
+  display: grid;
+  place-items: center;
+  padding-bottom: 120px;
+  color: var(--ph-fg);
+}
+
+.shadeTop,
+.shadeBottom {
+  position: absolute;
+  left: 0;
+  right: 0;
+  pointer-events: none;
+}
+
+.shadeTop {
+  top: 0;
+  height: 150px;
+  background: linear-gradient(rgba(0, 0, 0, 0.38), transparent);
+}
+
+.shadeBottom {
+  bottom: 0;
+  height: 300px;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.66));
+}
+
+.coverButtons {
+  position: absolute;
+  top: calc(var(--safe-top) + 10px);
+  left: 16px;
+  right: 16px;
+  display: flex;
+  justify-content: space-between;
+}
+
+.photoButton {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.16);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  border: 0.5px solid rgba(255, 255, 255, 0.22);
+  cursor: pointer;
+}
+
+.photoButton:focus-visible {
+  outline: 2px solid #fff;
+}
+
+.titleBlock {
+  position: absolute;
+  left: 20px;
+  right: 20px;
+  bottom: 54px;
+}
+
+.eyebrow {
+  margin: 0 0 6px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+}
+
+.title {
+  margin: 0;
+  font-size: 31px;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 14px;
+}
+
+/* ---------- Hoja ---------- */
+
+.sheet {
+  position: relative;
+  z-index: 1;
+  margin-top: -34px;
+  border-radius: 34px 34px 0 0;
+  background: var(--bg);
+  padding: 10px 16px calc(var(--nav-height) + var(--nav-bottom) + 32px);
+  min-height: 60vh;
+}
+
+.handle {
+  width: 36px;
+  height: 5px;
+  margin: 0 auto 16px;
+  border-radius: 999px;
+  background: var(--fg2);
+  opacity: 0.35;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.addButton {
+  flex: 1;
+  min-height: 54px;
+  font-size: 17px;
+}
+
+.notPlannable {
+  flex: 1;
+  margin: 0;
+  font-size: 14px;
+  color: var(--fg2);
+}
+
+.playButton {
+  flex: none;
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  padding: 0 0 0 3px;
+  color: var(--fg);
+  cursor: pointer;
+}
+
+.stats {
+  margin-top: 14px;
+  padding: 14px 4px;
+  border-radius: 24px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 0 6px;
+  text-align: center;
+}
+
+.stat + .stat {
+  border-left: 0.5px solid var(--line);
+}
+
+.statValue {
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.statLabel {
+  font-size: 13px;
+  color: var(--fg2);
+}
+
+.sectionTitle {
+  margin: 26px 4px 12px;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.notes {
+  margin: 0;
+  padding: 4px 18px;
+  list-style: none;
+}
+
+.noteRow {
+  padding: 14px 0;
+}
+
+.noteRow + .noteRow {
+  border-top: 0.5px solid var(--line);
+}
+
+.noteHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.noteDate {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--fg2);
+}
+
+.stars {
+  display: inline-flex;
+  gap: 1px;
+}
+
+.starOn {
+  color: var(--star);
+}
+
+.starOff {
+  color: var(--star-off);
+}
+
+.noteText,
+.noteEmpty {
+  margin: 6px 0 0;
+  font-size: 16px;
+}
+
+.noteEmpty {
+  color: var(--fg2);
+}
+
+.linkButton {
+  display: block;
+  margin: 10px auto 0;
+  border: 0;
+  background: none;
+  padding: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--fg);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.infoCard {
+  margin: 22px 0;
+  padding: 16px 18px;
+  border-radius: 24px;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.infoTitle {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.infoText {
+  margin: 4px 0 0;
+  font-size: 15px;
+  white-space: pre-line;
+}
+
+.adaptation {
+  margin-top: 28px;
+}
+
+.source {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 10px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--fg);
+}
+
+/* ---------- Barra fija ---------- */
+
+.blurTint,
+.blurStrong {
+  position: fixed;
+  top: 0;
+  left: var(--page-gutter);
+  right: var(--page-gutter);
+  z-index: 20;
+  pointer-events: none;
+  opacity: 0;
+}
+
+.blurTint {
+  height: 170px;
+  background: var(--top-tint);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  -webkit-mask-image: linear-gradient(#000 60%, rgba(0, 0, 0, 0.6) 78%, transparent);
+  mask-image: linear-gradient(#000 60%, rgba(0, 0, 0, 0.6) 78%, transparent);
+}
+
+.blurStrong {
+  height: 140px;
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
+  -webkit-mask-image: linear-gradient(#000 55%, transparent);
+  mask-image: linear-gradient(#000 55%, transparent);
+}
+
+.bar {
+  position: fixed;
+  z-index: 25;
+  top: calc(var(--safe-top) + 8px);
+  left: calc(var(--page-gutter) + 12px);
+  right: calc(var(--page-gutter) + 12px);
+  height: 60px;
+  padding: 0 8px;
+  border-radius: 30px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  opacity: 0;
+  pointer-events: none;
+  transform-origin: 50% 0%;
+}
+
+.barBack,
+.barAction {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  cursor: pointer;
+}
+
+.barBack {
+  color: var(--fg);
+  background: var(--chip);
+  border: 0.5px solid var(--chip-border);
+}
+
+.barAction {
+  border: 0;
+  background: var(--btn);
+  color: var(--btn-fg);
+}
+
+.barText {
+  flex: 1;
+  min-width: 0;
+}
+
+.barMeta {
+  margin: 0;
+  font-size: 12px;
+  color: var(--fg2);
+}
+
+.barTitle {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ---------- Menú «…» ---------- */
+
+.menuOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+}
+
+.menu {
+  position: fixed;
+  z-index: 41;
+  width: 270px;
+  padding: 6px;
+  border-radius: 26px;
+  background: var(--sheet);
+  -webkit-backdrop-filter: blur(40px) saturate(200%);
+  backdrop-filter: blur(40px) saturate(200%);
+  border: 1px solid var(--glass-border);
+  box-shadow: inset 0 1px 0 var(--glass-hl), 0 18px 50px rgba(0, 0, 0, 0.22);
+  animation: menuIn 200ms cubic-bezier(0.2, 0.9, 0.3, 1);
+  transform-origin: top right;
+}
+
+@keyframes menuIn {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+}
+
+.menuItem {
+  width: 100%;
+  min-height: 48px;
+  padding: 10px 14px;
+  border: 0;
+  border-radius: 20px;
+  background: none;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  text-align: left;
+  font-size: 16px;
+  color: var(--fg);
+  cursor: pointer;
+}
+
+.menuItem strong {
+  font-weight: 500;
+}
+
+.menuItem:hover,
+.menuItem:focus-visible {
+  background: var(--sel);
+}
+
+.danger {
+  color: var(--danger);
+}

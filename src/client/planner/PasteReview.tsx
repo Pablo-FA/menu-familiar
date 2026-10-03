@@ -148,17 +148,27 @@ export function PasteReview({
 }
 
 /** Si no se puede leer el portapapeles: pegar a mano. */
-export function PasteManual({ onReview, onClose }: { onReview: (text: string) => void; onClose: () => void }) {
+export function PasteManual({
+  onReview,
+  onClose,
+  title = "Pegar menú",
+  placeholder = "Pega aquí el menú",
+}: {
+  onReview: (text: string) => void;
+  onClose: () => void;
+  title?: string;
+  placeholder?: string;
+}) {
   const [text, setText] = useState("");
   return (
     <Sheet
-      label="Pegar menú"
+      label={title}
       onClose={onClose}
       top="calc(var(--safe-top) + 84px)"
       head={
         <div className={styles.sheetHead}>
           <div className={styles.sheetHeadText}>
-            <h2 className={styles.sheetTitle}>Pegar menú</h2>
+            <h2 className={styles.sheetTitle}>{title}</h2>
             <p className={styles.sheetSub}>Lo que te haya devuelto Claude</p>
           </div>
           <button type="button" className={styles.close36} onClick={onClose} aria-label="Cerrar">
@@ -175,14 +185,14 @@ export function PasteManual({ onReview, onClose }: { onReview: (text: string) =>
       }
     >
       <label className="visually-hidden" htmlFor="paste-manual">
-        Pega aquí el menú
+        {placeholder}
       </label>
       <textarea
         id="paste-manual"
         className={styles.textarea}
         value={text}
         onChange={(e) => setText(e.target.value)}
-        placeholder="Pega aquí el menú"
+        placeholder={placeholder}
         autoCapitalize="off"
         autoCorrect="off"
         spellCheck={false}

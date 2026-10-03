@@ -58,6 +58,14 @@
   font-weight: 500;
 }
 
+button.offline {
+  width: 100%;
+  font-family: inherit;
+  color: var(--fg);
+  text-align: left;
+  cursor: pointer;
+}
+
 /* ---------- Elementos fijos ligados al scroll ---------- */
 
 .blurTint,

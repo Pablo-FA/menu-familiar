@@ -58,6 +58,9 @@ export function weekdayOf(date: string): string {
 const day = (date: string) => Number(date.slice(8, 10));
 const mon = (date: string) => MONTHS[Number(date.slice(5, 7)) - 1] ?? "";
 
+/** "oct" */
+export const shortMonth = mon;
+
 /** "5 – 11 oct", "28 sep – 4 oct". */
 export function weekRangeLabel(monday: string): string {
   const sunday = addDays(monday, 6);

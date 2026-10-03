@@ -16,6 +16,9 @@ export interface RecipeSummary {
   cover_photo_key: string | null;
   /** URL para mostrar la portada (/api/photos/…), o null si no hay. */
   photo_url: string | null;
+  /** Miniatura (480 px) para la galería; la foto completa si aún no tiene. */
+  thumb_url: string | null;
+  has_thumb: boolean;
   archived: boolean;
   times_cooked: number;
   last_cooked_at: string | null;
@@ -25,6 +28,11 @@ export interface RecipeSummary {
   last_cooked: string | null;
   /** Media de las valoraciones con estrellas, a 1 decimal, o null. */
   avg_stars: number | null;
+  /** Nombres (del catálogo) de sus ingredientes, para buscar en la galería. */
+  ingredient_names: string[];
+  /** Tiene nota de congelación. */
+  has_freezer: boolean;
+  created_at: string;
 }
 
 export interface RecipeIngredient {
@@ -45,15 +53,52 @@ export interface RecipeStep {
   uses: string[] | null;
 }
 
+/** Una vez que se cocinó (historial de la ficha). */
+export interface CookHistoryEntry {
+  id: number;
+  cooked_at: string;
+  /** Fecha en Madrid (AAAA-MM-DD). */
+  date: string;
+  /** Franja planificada, o la que corresponde a la hora si se cocinó sin planificar. */
+  slot: Slot;
+  planned: boolean;
+  stars: number | null;
+  note: string | null;
+}
+
 /** GET /api/recipes/:id */
 export interface RecipeDetail extends RecipeSummary {
   source_url: string | null;
   adaptation_notes: string | null;
   freezer_note: string | null;
-  created_at: string;
   updated_at: string;
   ingredients: RecipeIngredient[];
   steps: RecipeStep[];
+  /** Del más reciente al más antiguo. */
+  history: CookHistoryEntry[];
+}
+
+/** POST /api/recipes/preview: qué se importaría, sin escribir nada. */
+export interface RecipePreviewResponse {
+  summary: {
+    id: string;
+    title: string;
+    minutes: number;
+    protein: Protein;
+    suits: Suits;
+    course: Course;
+    kcal_adult: number | null;
+    kcal_estimated: boolean;
+    adaptation_notes: string | null;
+    /** Portada de la receta existente, si la hay. */
+    photo_url: string | null;
+  } | null;
+  ingredients_count: number;
+  steps_count: number;
+  timers_count: number;
+  new_ingredients: { name: string; aisle: Aisle }[];
+  exists: boolean;
+  errors: { field: string; message: string }[];
 }
 
 /** POST /api/recipes/import */

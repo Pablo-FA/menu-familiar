@@ -184,12 +184,17 @@ describe("GET /api/recipes", () => {
       tags: ["japonesa", "curry", "empanado"],
       cover_photo_key: null,
       photo_url: null,
+      thumb_url: null,
+      has_thumb: false,
       archived: false,
       times_cooked: 0,
       last_cooked_at: null,
       last_stars: null,
       last_cooked: null,
       avg_stars: null,
+      ingredient_names: katsukare.ingredients.map((i) => i.name),
+      has_freezer: true,
+      created_at: expect.any(String),
     });
     expect(list.some((r) => r.id === "archivada")).toBe(false);
 

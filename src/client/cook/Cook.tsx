@@ -1,7 +1,8 @@
 import { BellRing, ChevronLeft, ChevronRight, Clock, ListChecks, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, type PointerEvent } from "react";
-import type { DayMeal, DayResponse, RecipeDetail } from "../../shared/api";
-import { emptyProgress, parseProgress, progressKey, type CookProgress } from "../../shared/cook-progress";
+import type { CookLog, DayMeal, DayResponse, RecipeDetail } from "../../shared/api";
+import { emptyProgress, parseProgress, progressKey, recipeProgressKey, type CookProgress } from "../../shared/cook-progress";
+import { DINNER_FROM_HOUR, madridNow } from "../../shared/dates";
 import type { Slot } from "../../shared/recipe-format";
 import { stepIngredients } from "../../shared/step-ingredients";
 import { newlyFinished, startTimer, type CookTimer } from "../../shared/timers";
@@ -56,7 +57,37 @@ export function Cook({ date, slot }: { date: string; slot: Slot }) {
       </div>
     );
   }
-  return <CookSession date={date} slot={slot} recipe={recipe} meal={load.meal} />;
+  return <CookSession date={date} slot={slot} recipe={recipe} existingLog={load.meal.cook_log} />;
+}
+
+type RecipeLoad = { state: "loading" } | { state: "error"; message: string } | { state: "ready"; recipe: RecipeDetail };
+
+/** «Cocinar ahora»: /cocinar/receta/:id, sin comida del plan. Tema según la hora. */
+export function CookRecipe({ id }: { id: string }) {
+  const [load, setLoad] = useState<RecipeLoad>({ state: "loading" });
+  const [slot] = useState<Slot>(() => (madridNow().hour >= DINNER_FROM_HOUR ? "dinner" : "lunch"));
+  const { setTodaySlot } = useTheme();
+  useWakeLock();
+
+  useEffect(() => {
+    setTodaySlot(slot);
+    return () => setTodaySlot(null);
+  }, [slot, setTodaySlot]);
+
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .get<RecipeDetail>(`/recipes/${encodeURIComponent(id)}`)
+      .then((recipe) => !cancelled && setLoad({ state: "ready", recipe }))
+      .catch((err: unknown) => !cancelled && setLoad({ state: "error", message: err instanceof Error ? err.message : String(err) }));
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
+
+  if (load.state === "loading") return <p className={styles.status}>Cargando…</p>;
+  if (load.state === "error") return <p className={styles.status}>No se pudo cargar la receta: {load.message}</p>;
+  return <CookSession date={null} slot={slot} recipe={load.recipe} existingLog={null} />;
 }
 
 function loadProgress(key: string, steps: number): CookProgress {
@@ -70,8 +101,20 @@ function loadProgress(key: string, steps: number): CookProgress {
   return { ...saved, step: Math.min(saved.step, steps - 1) };
 }
 
-function CookSession({ date, slot, recipe, meal }: { date: string; slot: Slot; recipe: RecipeDetail; meal: DayMeal }) {
-  const key = progressKey(date, slot);
+function CookSession({
+  date,
+  slot,
+  recipe,
+  existingLog,
+}: {
+  /** null: «Cocinar ahora» (sin comida del plan). */
+  date: string | null;
+  slot: Slot;
+  recipe: RecipeDetail;
+  existingLog: CookLog | null;
+}) {
+  const key = date ? progressKey(date, slot) : recipeProgressKey(recipe.id);
+  const home = date ? "/" : `/receta/${encodeURIComponent(recipe.id)}`;
   const steps = recipe.steps;
   const [progress, setProgress] = useState<CookProgress>(() => loadProgress(key, steps.length));
   const [direction, setDirection] = useState<"forward" | "back">("forward");
@@ -171,14 +214,14 @@ function CookSession({ date, slot, recipe, meal }: { date: string; slot: Slot; r
     goTo(progress.step + (dx < 0 ? 1 : -1));
   }
 
-  const exit = () => navigate("/"); // conserva el progreso guardado
+  const exit = () => navigate(home); // conserva el progreso guardado
   const finishAndLeave = () => {
     try {
       localStorage.removeItem(key);
     } catch {
       // nada
     }
-    navigate("/");
+    navigate(home);
   };
 
   if (progress.finished) {
@@ -188,8 +231,8 @@ function CookSession({ date, slot, recipe, meal }: { date: string; slot: Slot; r
         <FinishScreen
           recipe={recipe}
           date={date}
-          slot={slot}
-          existingLog={meal.cook_log}
+          slot={date ? slot : null}
+          existingLog={existingLog}
           onBack={() => goTo(steps.length - 1)}
           onDone={finishAndLeave}
         />

@@ -81,13 +81,13 @@ export async function storedItems(db: D1Database, listId: number): Promise<Store
 export async function plannedMeals(db: D1Database, from: string, to: string): Promise<(SnapshotMeal & { title: string })[]> {
   const { results } = await db
     .prepare(
-      `SELECT pm.date, pm.slot, pm.recipe_id, r.title
+      `SELECT pm.date, pm.slot, pm.recipe_id, r.title, r.updated_at
        FROM plan_meals pm JOIN recipes r ON r.id = pm.recipe_id
        WHERE pm.status = 'planned' AND pm.date BETWEEN ? AND ?
        ORDER BY pm.date, CASE pm.slot WHEN 'lunch' THEN 0 ELSE 1 END`,
     )
     .bind(from, to)
-    .all<{ date: string; slot: Slot; recipe_id: string; title: string }>();
+    .all<{ date: string; slot: Slot; recipe_id: string; title: string; updated_at: string }>();
   return results;
 }
 
@@ -135,7 +135,7 @@ export async function currentCoverage(db: D1Database, list: ListRow) {
   const planned = await plannedMeals(db, list.from_date, list.to_date);
   const excluded = parseJson<MealRef[]>(list.excluded, []);
   const covered = coveredMeals(
-    planned.map(({ date, slot, recipe_id }) => ({ date, slot, recipe_id })),
+    planned.map(({ date, slot, recipe_id, updated_at }) => ({ date, slot, recipe_id, updated_at })),
     excluded,
   );
   return { planned, covered };

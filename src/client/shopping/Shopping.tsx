@@ -1,4 +1,4 @@
-import { Check, ChevronDown, CloudOff, Ellipsis, House, Plus, RefreshCw, ShoppingBag } from "lucide-react";
+import { Check, ChevronDown, CloudOff, Ellipsis, House, LogIn, Plus, RefreshCw, ShoppingBag } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AISLE_LABEL, AISLES, type Aisle } from "../../shared/aisles";
 import type { ShoppingCandidatesResponse, ShoppingItem, ShoppingListResponse, ShoppingUpdateResponse } from "../../shared/api";
@@ -46,7 +46,9 @@ function plural(n: number, one: string, many: string) {
 }
 
 export function Shopping() {
-  const { list, offline } = useShopping();
+  const { list, offline: noNetwork, sessionExpired } = useShopping();
+  // Lo que necesita el servidor (crear, actualizar) tampoco funciona con la sesión caducada.
+  const offline = noNetwork || sessionExpired;
   const toast = useToast();
   const [sheet, setSheet] = useState<SheetState>(null);
   const [menuAnchor, setMenuAnchor] = useState<DOMRect | null>(null);
@@ -281,11 +283,18 @@ export function Shopping() {
         )}
       </div>
 
-      {offline && (
-        <p className={`${styles.offline} glass`} role="status">
-          <CloudOff size={18} aria-hidden="true" />
-          Sin conexión · lo que marques se guarda en el móvil
-        </p>
+      {sessionExpired ? (
+        <button type="button" className={`${styles.offline} glass`} onClick={() => window.location.reload()}>
+          <LogIn size={18} aria-hidden="true" />
+          Sesión caducada · Toca para entrar
+        </button>
+      ) : (
+        noNetwork && (
+          <p className={`${styles.offline} glass`} role="status">
+            <CloudOff size={18} aria-hidden="true" />
+            Sin conexión · lo que marques se guarda en el móvil
+          </p>
+        )
       )}
 
       {list === undefined && !offline && <p className={styles.muted}>Cargando…</p>}

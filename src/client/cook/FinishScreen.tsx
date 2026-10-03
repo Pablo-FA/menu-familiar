@@ -1,10 +1,10 @@
 import { Camera, ChevronLeft, RotateCcw, Star } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import type { CookLog, PhotoResponse, RecipeDetail } from "../../shared/api";
+import type { CookLog, RecipeDetail } from "../../shared/api";
 import type { Slot } from "../../shared/recipe-format";
 import { api } from "../api";
 import styles from "./Cook.module.css";
-import { PhotoError, preparePhoto } from "./photo";
+import { PhotoError, preparePhoto, uploadCover } from "./photo";
 
 /**
  * Pantalla tras "Terminar": foto de portada (si no la tiene), valoración opcional y nota.
@@ -20,8 +20,9 @@ export function FinishScreen({
   onDone,
 }: {
   recipe: RecipeDetail;
-  date: string;
-  slot: Slot;
+  /** null: «Cocinar ahora», sin comida del plan (el registro va sin plan_meal). */
+  date: string | null;
+  slot: Slot | null;
   existingLog: CookLog | null;
   onBack: () => void;
   onDone: () => void;
@@ -94,14 +95,7 @@ export function FinishScreen({
 
     if (photo && !photoSaved) {
       try {
-        const res = await fetch(`/api/recipes/${encodeURIComponent(recipe.id)}/photo`, {
-          method: "POST",
-          credentials: "same-origin",
-          headers: { "Content-Type": "image/jpeg" },
-          body: photo.blob,
-        });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        (await res.json()) as PhotoResponse;
+        await uploadCover(recipe.id, photo.blob);
         setPhotoSaved(true);
       } catch {
         setError("Se ha guardado que lo habéis cocinado, pero la foto no se ha podido subir.");

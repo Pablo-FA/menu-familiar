@@ -145,3 +145,9 @@ a {
     animation-duration: 0.01ms !important;
   }
 }
+
+/* Mensaje de carga a pantalla completa (p. ej. mientras llega una parte de la app). */
+.screen-status {
+  padding: calc(var(--safe-top) + 24px) 20px;
+  color: var(--fg2);
+}

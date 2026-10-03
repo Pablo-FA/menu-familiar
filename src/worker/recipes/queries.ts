@@ -1,6 +1,7 @@
-import type { RecipeDetail, RecipeIngredient, RecipeStep, RecipeSummary } from "../../shared/api";
+import type { CookHistoryEntry, RecipeDetail, RecipeIngredient, RecipeStep, RecipeSummary } from "../../shared/api";
 import type { Aisle, Course, Protein, Suits, Unit } from "../../shared/recipe-format";
-import { madridNow } from "../../shared/dates";
+import { DINNER_FROM_HOUR, madridNow } from "../../shared/dates";
+import type { Slot } from "../../shared/recipe-format";
 import { photoUrl } from "../photos";
 
 interface SummaryRow {
@@ -14,24 +15,29 @@ interface SummaryRow {
   kcal_estimated: number;
   tags: string;
   cover_photo_key: string | null;
+  cover_thumb_key: string | null;
   archived: number;
   times_cooked: number;
   last_cooked_at: string | null;
   last_stars: number | null;
   avg_stars: number | null;
+  ingredient_names: string;
+  has_freezer: number;
+  created_at: string;
 }
 
 interface DetailRow extends SummaryRow {
   source_url: string | null;
   adaptation_notes: string | null;
   freezer_note: string | null;
-  created_at: string;
   updated_at: string;
 }
 
 const SUMMARY_COLUMNS = `
   r.id, r.title, r.minutes, r.protein, r.suits, r.course, r.kcal_adult, r.kcal_estimated, r.tags,
-  r.cover_photo_key, r.archived,
+  r.cover_photo_key, r.cover_thumb_key, r.archived, r.created_at, (r.freezer_note IS NOT NULL) AS has_freezer,
+  (SELECT json_group_array(i.name) FROM recipe_ingredients ri JOIN ingredients i ON i.id = ri.ingredient_id
+     WHERE ri.recipe_id = r.id) AS ingredient_names,
   (SELECT COUNT(*) FROM cook_logs l WHERE l.recipe_id = r.id) AS times_cooked,
   (SELECT MAX(l.cooked_at) FROM cook_logs l WHERE l.recipe_id = r.id) AS last_cooked_at,
   (SELECT l.stars FROM cook_logs l WHERE l.recipe_id = r.id AND l.stars IS NOT NULL
@@ -51,12 +57,17 @@ function toSummary(row: SummaryRow): RecipeSummary {
     tags: JSON.parse(row.tags) as string[],
     cover_photo_key: row.cover_photo_key,
     photo_url: row.cover_photo_key ? photoUrl(row.cover_photo_key) : null,
+    thumb_url: row.cover_thumb_key ? photoUrl(row.cover_thumb_key) : row.cover_photo_key ? photoUrl(row.cover_photo_key) : null,
+    has_thumb: row.cover_thumb_key !== null,
     archived: row.archived === 1,
     times_cooked: row.times_cooked,
     last_cooked_at: row.last_cooked_at,
     last_cooked: row.last_cooked_at ? madridNow(new Date(row.last_cooked_at)).date : null,
     avg_stars: row.avg_stars,
     last_stars: row.last_stars,
+    ingredient_names: [...new Set(JSON.parse(row.ingredient_names) as string[])],
+    has_freezer: row.has_freezer === 1,
+    created_at: row.created_at,
   };
 }
 
@@ -69,10 +80,10 @@ export async function listRecipes(db: D1Database, options: { includeArchived: bo
 }
 
 export async function getRecipe(db: D1Database, id: string): Promise<RecipeDetail | null> {
-  const [recipeRes, ingredientsRes, stepsRes] = await db.batch([
+  const [recipeRes, ingredientsRes, stepsRes, historyRes] = await db.batch([
     db
       .prepare(
-        `SELECT ${SUMMARY_COLUMNS}, r.source_url, r.adaptation_notes, r.freezer_note, r.created_at, r.updated_at
+        `SELECT ${SUMMARY_COLUMNS}, r.source_url, r.adaptation_notes, r.freezer_note, r.updated_at
          FROM recipes r WHERE r.id = ?`,
       )
       .bind(id),
@@ -86,6 +97,12 @@ export async function getRecipe(db: D1Database, id: string): Promise<RecipeDetai
       .bind(id),
     db
       .prepare("SELECT position, text, timer_seconds, timer_label, uses FROM recipe_steps WHERE recipe_id = ? ORDER BY position")
+      .bind(id),
+    db
+      .prepare(
+        `SELECT id, cooked_at, plan_meal_date, plan_meal_slot, stars, note FROM cook_logs
+         WHERE recipe_id = ? ORDER BY cooked_at DESC, id DESC`,
+      )
       .bind(id),
   ]);
 
@@ -122,9 +139,34 @@ export async function getRecipe(db: D1Database, id: string): Promise<RecipeDetai
     created_at: row.created_at,
     updated_at: row.updated_at,
     ingredients,
+    history: ((historyRes?.results ?? []) as HistoryRow[]).map(toHistory),
     steps: ((stepsRes?.results ?? []) as (Omit<RecipeStep, "uses"> & { uses: string | null })[]).map((step) => ({
       ...step,
       uses: step.uses ? (JSON.parse(step.uses) as string[]) : null,
     })),
+  };
+}
+
+interface HistoryRow {
+  id: number;
+  cooked_at: string;
+  plan_meal_date: string | null;
+  plan_meal_slot: Slot | null;
+  stars: number | null;
+  note: string | null;
+}
+
+/** Sin comida planificada (Cocinar ahora), la franja sale de la hora en Madrid. */
+function toHistory(row: HistoryRow): CookHistoryEntry {
+  const local = madridNow(new Date(row.cooked_at));
+  const planned = row.plan_meal_date !== null && row.plan_meal_slot !== null;
+  return {
+    id: row.id,
+    cooked_at: row.cooked_at,
+    date: row.plan_meal_date ?? local.date,
+    slot: row.plan_meal_slot ?? (local.hour >= DINNER_FROM_HOUR ? "dinner" : "lunch"),
+    planned,
+    stars: row.stars,
+    note: row.note,
   };
 }
