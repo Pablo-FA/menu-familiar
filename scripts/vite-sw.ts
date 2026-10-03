@@ -8,7 +8,7 @@ import type { Plugin } from "vite";
  * build (hash de index.html y los assets) y la lista de assets a guardar al instalar.
  * Una versión nueva crea una caché nueva y borra la anterior.
  */
-const PUBLIC_PRECACHE = ["/icons/icon.svg", "/icons/favicon-64.png"];
+const PUBLIC_PRECACHE = ["/icons/icon-glass.svg", "/icons/icon.svg", "/icons/favicon-64.png"];
 
 export function serviceWorker(): Plugin {
   return {
